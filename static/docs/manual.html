@@ -153,6 +153,22 @@
             color: var(--text-muted);
             font-size: 12px;
         }
+
+        figure.shot {
+            margin: 12px 0 16px;
+        }
+        figure.shot img {
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            display: block;
+        }
+        figure.shot figcaption {
+            margin-top: 6px;
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.45;
+        }
         @media (max-width: 560px) {
             nav.toc ol { grid-template-columns: 1fr; }
         }
@@ -166,12 +182,16 @@
                 <span class="version">UI v4.0</span>
             </div>
             <p>个人 DVD / Blu-ray 墙：上传碟脊特写 → 识别入库 → 在全景墙上 AR 定位查找。本文档对应当前界面真实功能，供自己查阅。</p>
+            <p class="note">v4.0 为<strong>中文单语言</strong>定稿（片名、发行商等可夹杂英文）。下一版计划至少中 / 英界面切换；本版不做 i18n。</p>
         </header>
 
         <nav class="toc" aria-label="目录">
             <h2>目录</h2>
             <ol>
                 <li><a href="#overview">1. 界面概览</a></li>
+                <li><a href="#manual-path">手工建墙主路径</a></li>
+                <li><a href="#vision-setup">自建视觉模型</a></li>
+                <li><a href="#shots">页面截图</a></li>
                 <li><a href="#panels">2. 侧栏把手</a></li>
                 <li><a href="#views">3. 列表 / 树形</a></li>
                 <li><a href="#search">4. 搜索与筛选</a></li>
@@ -203,6 +223,55 @@
             </ul>
             <p>状态写入浏览器 <code>localStorage</code>（键 <code>mywall-edit-unlocked</code>），切换立即生效，不必刷新。首次打开默认只读，避免误改。手机布局（窄屏 / 粗指针 / 手机 UA）<strong>强制只读</strong>，忽略电脑上存的开锁状态，版本号旁的锁图标不显示；电脑桌面布局仍尊重该开关。</p>
         </section>
+
+        <section id="manual-path">
+            <h2>完整手工建墙（无模型主路径）</h2>
+            <p>没有本地视觉模型时，Stage2 / 上传自动识别不可用。下面这条路径只靠手工建卡 + TMDb / OMDb / TVDB 搜索，也能把墙建起来——这是识别有限时的主用法。</p>
+            <ol>
+                <li><strong>开锁：</strong>点版本号旁的锁图标，进入可编辑（手机窄屏仍强制只读）。</li>
+                <li><strong>上传特写：</strong>侧栏底「功能」→「上传识别」，上传碟脊特写或全景。可先不跑识别。</li>
+                <li><strong>手工改碟脊框：</strong>打开碟脊框编辑器，按实际脊宽拖改 / 增删框。</li>
+                <li><strong>可选 Stage2：</strong>本机 LM Studio 可用时再跑；不可用就跳过，不要卡在识别。</li>
+                <li><strong>手工建卡：</strong>「功能」→「手工建卡」。中文或英文片名至少填一项；可关联刚上传的特写。</li>
+                <li><strong>搜三平台：</strong>同一搜索框选类型（全部 / 电影 / 剧集）与来源（全部 / TMDb / IMDb / TVDB），按片名搜索，点选候选写入编号与海报。<strong>不要伪造 tmdb_id。</strong></li>
+                <li><strong>补海报：</strong>有 TMDb 编号后可用「从 TMDb 刷新」或侧栏「补全海报」。</li>
+                <li><strong>墙面放置：</strong>详情里把特写框对到全景墙上（墙坐标），手机按住卡片可看 AR 定位。</li>
+                <li><strong>手机浏览：</strong>同一 Tailscale 地址只读查看列表 / 墙 / 定位。不要在手机上改库。</li>
+            </ol>
+            <p class="note">API Key 在「编辑碟片 / 手工建卡」弹窗的折叠区块维护，写入本机 <code>data/api_keys.json</code>，界面只显示掩码。</p>
+        </section>
+
+        <section id="vision-setup">
+            <h2>自建 / 部署视觉模型（Stage2 可选）</h2>
+            <p>自动识别依赖本机或局域网上的 <strong>LM Studio OpenAI-compatible</strong> 服务（<code>/v1/chat/completions</code>），不是云端视觉 API。配置以仓库根目录 <code>config.py</code> 与环境变量为准。</p>
+            <ol>
+                <li>安装 <a href="https://lmstudio.ai/" target="_blank" rel="noopener">LM Studio</a>。</li>
+                <li>下载并加载视觉模型。默认模型 id：<code>zai-org/glm-4.6v-flash</code>（可用 <code>VISION_MODEL</code> 指定其它已加载模型；<code>VISION_MODEL_AUTO=1</code> 时按偏好表挑选，偏好含 <code>google/gemma-4-31b-qat</code>）。</li>
+                <li>开启 LM Studio Local Server（OpenAI 兼容，常见端口 <code>1234</code>）。</li>
+                <li>填写 endpoint：环境变量或 <code>config.py</code> 中的 <code>LMSTUDIO_BASE</code>（默认 <code>http://127.0.0.1:1234</code>）。模型若在另一台电脑，改为那台的 <code>http://主机:端口</code>。不要把内网 IP 写进公开文档。</li>
+                <li>跑 Flask 的机器必须能访问该 endpoint（同机、同网段、防火墙放行）。</li>
+                <li>代理 / Tun：出站 TMDb 等 API 可走 <code>HTTPS_PROXY</code>；若开了系统 Tun，局域网访问 LM Studio 可能被劫持——把内网段加入旁路，或只让出站 API 域名走代理。</li>
+            </ol>
+            <p class="note warn">没有可用模型时，上传分析与 Stage2 会失败。请改走「完整手工建墙」。识别不是建墙的前提。</p>
+        </section>
+
+        <section id="shots">
+            <h2>页面截图</h2>
+            <p>作者本机 v4.0 界面。第一张含真实家居与碟墙，仅用于本私有库说明；<strong>请勿把私人墙图用于演示 fork</strong>。</p>
+            <figure class="shot">
+                <img src="/docs/screenshots/01-desktop-home.png" alt="桌面首页：列表、墙面 AR 半透明块与详情">
+                <figcaption>桌面首页：左列表、中墙面（AR 半透明块叠在作者自己的收藏墙上）、右详情。</figcaption>
+            </figure>
+            <figure class="shot">
+                <img src="/docs/screenshots/02-edit-api-keys.png" alt="编辑碟片弹窗中的 API Key 掩码与开关">
+                <figcaption>编辑碟片：TMDb / OMDb(IMDb) / TVDB 三行 key 只显示掩码末四位，可开关是否调用。</figcaption>
+            </figure>
+            <figure class="shot">
+                <img src="/docs/screenshots/03-functions-tray.png" alt="侧栏功能托盘四个入口">
+                <figcaption>「功能」托盘：上传识别、手工建卡、图片管理、补全海报——手工建墙的主入口。</figcaption>
+            </figure>
+        </section>
+
 
         <section id="panels">
             <h2>2. 拖动侧栏 / 拖动面板</h2>
@@ -412,7 +481,7 @@
 
             <h3>LM Studio / 本地视觉模型</h3>
             <ul>
-                <li>代码默认基址：<code>http://192.168.1.41:1234</code>（可用环境变量 <code>LMSTUDIO_BASE</code> 覆盖）。</li>
+                <li>代码默认基址：<code>http://127.0.0.1:1234</code>（<code>LMSTUDIO_BASE</code>，见「自建视觉模型」）（可用环境变量 <code>LMSTUDIO_BASE</code> 覆盖）。</li>
                 <li>默认模型 id：<code>zai-org/glm-4.6v-flash</code>；可用 <code>VISION_MODEL=…</code> 强制指定，或 <code>VISION_MODEL_AUTO=1</code> 按偏好表在已加载模型中挑选（偏好含 <code>google/gemma-4-31b-qat</code> 等）。</li>
                 <li>识别 / Stage2 / 区域重识别都依赖该 OpenAI 兼容 <code>/v1/chat/completions</code> 接口；服务不可达时上传分析与 Stage2 会失败。</li>
                 <li>需保证跑 Flask 的机器能访问该局域网地址（同网段 / 路由 / 防火墙放行）。</li>
@@ -422,7 +491,7 @@
             <ul>
                 <li><code>tmdb_client</code> / <code>omdb_client</code> / <code>tvdb_client</code> 会读取环境变量 <code>HTTP_PROXY</code> / <code>HTTPS_PROXY</code>（及小写形式），缺省回落到 <code>config.TMDB_HTTP_PROXY</code>（常见 <code>http://127.0.0.1:10808</code>）。</li>
                 <li>离线批处理脚本 <code>scripts/_batch_stage2.py</code> 实践中写死示例代理 <code>http://127.0.0.1:10808</code>（注释说明直连易超时）。网页 Flask 进程若未继承 shell 代理，仍可用上述默认。</li>
-                <li>注意：开系统 Tun 时，局域网访问 LM Studio（如 <code>192.168.1.41</code>）可能被劫持；常见做法是把内网段加入 Tun 旁路，或仅对出站 API 域名走代理。</li>
+                <li>注意：开系统 Tun 时，局域网访问 LM Studio可能被劫持；常见做法是把内网段加入 Tun 旁路，或仅对出站 API 域名走代理。</li>
             </ul>
 
             <h3>离线脚本与编辑器</h3>

@@ -5,7 +5,7 @@
 3. EasyOCR + 全图视觉 + 布局自适应 tiling → 合并去重
 4. 布局由宽高比 + OCR bbox 方向推断（不做写死三列）
 5. 支持手工框选区域 analyze_region（裁剪后视觉+OCR）
-6. LM Studio @ ericgan (192.168.1.41:1234)
+6. LM Studio OpenAI-compatible endpoint（LMSTUDIO_BASE，见 config.py）
 
 切换更强视觉模型（天花板主要在模型）:
   set VISION_MODEL=google/gemma-4-31b-qat
@@ -20,11 +20,13 @@ import logging
 import requests
 from PIL import Image
 
+import config as cfg
+
 _log = logging.getLogger("mywall.vision")
 
 _reader = None
-LMSTUDIO_BASE = os.environ.get("LMSTUDIO_BASE", "http://192.168.1.41:1234")
-_DEFAULT_VISION = "zai-org/glm-4.6v-flash"
+LMSTUDIO_BASE = (getattr(cfg, "LMSTUDIO_BASE", None) or os.environ.get("LMSTUDIO_BASE") or "http://127.0.0.1:1234").rstrip("/")
+_DEFAULT_VISION = (getattr(cfg, "VISION_MODEL_DEFAULT", None) or os.environ.get("VISION_MODEL") or "zai-org/glm-4.6v-flash").strip()
 # 优先序：明确的视觉/多模态 > flash。Qwen3.6 文本型不会自动选用。
 _VISION_PREFERENCE = [
     "google/gemma-4-31b-qat",

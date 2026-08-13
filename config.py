@@ -32,6 +32,11 @@ TVDB_API_KEY = (
 ).strip()
 
 # 本机 API Key（编辑碟片弹窗维护；未入库，见 .gitignore）
+# LM Studio：OpenAI 兼容本地视觉服务（Stage2 / 自动识别）
+# 用环境变量覆盖；默认本机 1234，勿把内网 IP 写进文档。
+LMSTUDIO_BASE = (os.environ.get("LMSTUDIO_BASE") or "http://127.0.0.1:1234").rstrip("/")
+VISION_MODEL_DEFAULT = (os.environ.get("VISION_MODEL") or "zai-org/glm-4.6v-flash").strip()
+
 API_KEYS_PATH = os.path.join(BASE_DIR, "data", "api_keys.json")
 
 # 数据库

@@ -328,6 +328,11 @@ def serve_upload(filename):
 
 # ===== Disc API =====
 
+
+@app.route("/docs/screenshots/<path:filename>")
+def serve_doc_screenshot(filename):
+    return send_from_directory(os.path.join(BASE_DIR, "docs", "screenshots"), filename)
+
 @app.route("/api/discs")
 def api_get_discs():
     keyword = request.args.get("keyword", "").strip()
