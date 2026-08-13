@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>myWall 使用手册 — v4.0</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #121212;
+            --bg-surface: #181818;
+            --bg-mid: #1f1f1f;
+            --bg-elevated: #252525;
+            --text-base: #ffffff;
+            --text-silver: #b3b3b3;
+            --text-muted: #7a7a7a;
+            --green: #1ed760;
+            --gold: #ffa42b;
+            --blue: #539df5;
+            --border: #333;
+            --radius: 10px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: Outfit, "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: var(--bg-base);
+            color: var(--text-base);
+            line-height: 1.55;
+            font-size: 14px;
+            padding: 0;
+        }
+        .wrap {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 28px 24px 64px;
+        }
+        .hero {
+            margin-bottom: 28px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .hero-brand {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .hero-brand h1 {
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        .brand-dot { color: var(--green); }
+        .version {
+            font-size: 12px;
+            font-weight: 400;
+            color: var(--text-muted);
+        }
+        .hero p {
+            margin-top: 8px;
+            color: var(--text-silver);
+            font-size: 13px;
+            max-width: 42em;
+        }
+        nav.toc {
+            background: var(--bg-surface);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            margin-bottom: 28px;
+        }
+        nav.toc h2 {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 8px;
+        }
+        nav.toc ol {
+            list-style: none;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px 16px;
+        }
+        nav.toc a {
+            color: var(--text-silver);
+            text-decoration: none;
+            font-size: 13px;
+        }
+        nav.toc a:hover { color: var(--green); }
+        section {
+            margin-bottom: 28px;
+        }
+        section h2 {
+            font-size: 17px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--text-base);
+        }
+        section h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin: 14px 0 6px;
+            color: var(--text-silver);
+        }
+        section p, section li {
+            color: var(--text-silver);
+            font-size: 13px;
+        }
+        section ul, section ol {
+            padding-left: 1.25em;
+            margin: 6px 0 10px;
+        }
+        section li { margin-bottom: 4px; }
+        section strong { color: var(--text-base); font-weight: 600; }
+        code {
+            font-family: ui-monospace, Consolas, "SF Mono", monospace;
+            font-size: 12px;
+            background: var(--bg-elevated);
+            padding: 1px 6px;
+            border-radius: 4px;
+            color: #e8e8e8;
+        }
+        kbd {
+            font-family: ui-monospace, Consolas, monospace;
+            font-size: 11px;
+            background: var(--bg-mid);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1px 5px;
+            color: var(--text-base);
+        }
+        .note {
+            margin-top: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: rgba(83, 157, 245, 0.08);
+            border: 1px solid rgba(83, 157, 245, 0.28);
+            color: var(--text-silver);
+            font-size: 12px;
+        }
+        .note.warn {
+            background: rgba(255, 164, 43, 0.08);
+            border-color: rgba(255, 164, 43, 0.35);
+        }
+        .foot {
+            margin-top: 36px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+        @media (max-width: 560px) {
+            nav.toc ol { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <header class="hero">
+            <div class="hero-brand">
+                <h1><span class="brand-dot">●</span>myWall 使用手册</h1>
+                <span class="version">UI v4.0</span>
+            </div>
+            <p>个人 DVD / Blu-ray 墙：上传碟脊特写 → 识别入库 → 在全景墙上 AR 定位查找。本文档对应当前界面真实功能，供自己查阅。</p>
+        </header>
+
+        <nav class="toc" aria-label="目录">
+            <h2>目录</h2>
+            <ol>
+                <li><a href="#overview">1. 界面概览</a></li>
+                <li><a href="#panels">2. 侧栏把手</a></li>
+                <li><a href="#views">3. 列表 / 树形</a></li>
+                <li><a href="#search">4. 搜索与筛选</a></li>
+                <li><a href="#detail">5. 详情与定位</a></li>
+                <li><a href="#edit">6. 编辑 / 手工建卡 / 多源片名搜索</a></li>
+                <li><a href="#placement">7. 特写墙面位置</a></li>
+                <li><a href="#upload">8. 上传识别</a></li>
+                <li><a href="#manage">9. 图片管理</a></li>
+                <li><a href="#spine">10. 碟脊框</a></li>
+                <li><a href="#cards">11. 卡片快捷操作</a></li>
+                <li><a href="#deps">12. 工具 / 外部依赖</a></li>
+            </ol>
+        </nav>
+
+        <section id="overview">
+            <h2>1. 界面概览</h2>
+            <ul>
+                <li><strong>全景墙</strong>：中央背景；碟片标记、定位环、特写半透明覆盖都叠在墙上。侧栏底栏「功能」上方可调墙图明暗（约 30%–100%，默认 75%），只暗照片、不暗标记；浏览器会记住。</li>
+                <li><strong>左面板</strong>：标题（含版本号）、版本号后的<strong>锁/解锁线图标</strong>（全局可编辑开关，见下）、列表/树切换、搜索、筛选、碟片列表；底栏「功能」条默认收起，点或悬停后向上滑出「上传识别 / 手工建卡 / 图片管理 / 补全海报」线框图标按钮（再点、点空白或 Esc 收起）。</li>
+                <li><strong>右详情面板</strong>：点选碟片后出现；海报、简介、原图位置、定位与编辑。</li>
+            </ul>
+            <p class="note">当前页面标题与左上角版本标签均为 <strong>v4.0</strong>。侧栏「使用手册」打开本页（也可新标签打开 <code>/static/docs/manual.html</code>）。手机浏览：墙默认钉在视口顶部，仅其下侧栏列表滚动；栏目上沿有短横条把手——<strong>按住上滑隐藏墙面</strong>沉浸看卡片，<strong>再按住下滑露出墙面</strong>方便看 AR（列表区照常纵滚，不抢手势）。桌面墙仍全屏、拖拽侧栏不变。</p>
+
+            <h3>可编辑 / 只读开关</h3>
+            <p>版本号 <code>v3.x</code> 同一行后面有一个<strong>仅线框、无底</strong>的小锁图标，字号与版本号相同：</p>
+            <ul>
+                <li><strong>锁（默认）</strong>：只读。可列表/树、搜索筛选、看详情、定位 AR、缩放墙图、拖侧栏看墙、调明暗；所有写操作禁用，点了会 toast「只读模式」。</li>
+                <li><strong>开锁（绿色）</strong>：可编辑。允许改碟片、手工建卡、上传识别、Stage2、补海报、喜好/旗标、删卡、改框、墙面放置等。</li>
+            </ul>
+            <p>状态写入浏览器 <code>localStorage</code>（键 <code>mywall-edit-unlocked</code>），切换立即生效，不必刷新。首次打开默认只读，避免误改。手机布局（窄屏 / 粗指针 / 手机 UA）<strong>强制只读</strong>，忽略电脑上存的开锁状态，版本号旁的锁图标不显示；电脑桌面布局仍尊重该开关。</p>
+        </section>
+
+        <section id="panels">
+            <h2>2. 拖动侧栏 / 拖动面板</h2>
+            <p>左右面板顶部有灰色把手条：</p>
+            <ul>
+                <li>左：「拖动侧栏」— 左右拖动，露出被挡住的墙面。</li>
+                <li>右：「拖动面板」— 打开详情后同样可横向挪开。</li>
+                <li><strong>双击把手</strong>：偏移复位到 0。</li>
+                <li>键盘：把手聚焦后用 <kbd>←</kbd> / <kbd>→</kbd> 微调（<kbd>Shift</kbd> 加大步长）。</li>
+            </ul>
+            <p>偏移会写入浏览器本地存储，下次打开仍保留。</p>
+        </section>
+
+        <section id="views">
+            <h2>3. 列表模式 / 树形模式</h2>
+            <h3>列表模式</h3>
+            <p>按库中碟片平铺卡片。卡片标题第一行英文（无英文则中文），第二行灰色小字中文译名（与英文相同或无中文则不重复）。点击卡片打开详情；喜好心形在年份下方（与海报底边对齐），右侧操作为定位 / 编辑 / 标记错误 / 删除。只读模式下定位仍可用，编辑 / 旗标 / 删除 / 喜好心形不可用。</p>
+            <h3>树形模式</h3>
+            <p>按来源特写照片 <code>source_image</code> 分组。点击组头展开/折叠。</p>
+            <ul>
+                <li>组头左侧<strong>缩略图</strong>：可编辑时点击打开「调整特写在墙面上的位置」（见第 7 节）；只读时禁用。</li>
+                <li>组内仍是同样的碟片卡片。</li>
+            </ul>
+        </section>
+
+        <section id="search">
+            <h2>4. 搜索与筛选</h2>
+            <ol>
+                <li>在搜索框输入片名、导演、演员等关键词（输入防抖；也可点搜索按钮或回车）。</li>
+                <li>用「类型」「年份」「喜好」下拉进一步过滤；三者与关键词可组合。</li>
+                <li>喜好筛选项：全部喜好 / 绿 / 蓝 / 橙 / 未标注（对应数据库 <code>preference</code> 的 全部 / 1 / 2 / 3 / 0）。</li>
+                <li>统计条显示当前结果数量。</li>
+            </ol>
+        </section>
+
+        <section id="detail">
+            <h2>5. 碟片详情、定位、半透明特写</h2>
+            <h3>打开详情</h3>
+            <p>点击列表/树中的碟片卡片 → 右侧出现详情（海报、年份、评分、类型、简介、导演主演）。</p>
+            <h3>在原照片中的位置</h3>
+            <ul>
+                <li>有来源图时显示缩略原图 + 高亮框。</li>
+                <li>点击原图 → 全屏半透明放大（AR Zoom），可对照框选位置。</li>
+                <li>「重新框选」：在原图上手工拉框，确认后按区域重识别/更新位置（只读时禁用）。</li>
+            </ul>
+            <h3>定位位置（墙上 AR）</h3>
+            <ol>
+                <li>详情底部点「定位位置」，或卡片上的定位线图标。</li>
+                <li>墙面出现扩散环 + 当前碟气泡；所属特写区域以<strong>半透明色块</strong>叠在墙上（若该图已标定墙面 placement）。</li>
+                <li>若碟片尚未有墙面坐标，会提示「尚未标记位置」。</li>
+            </ol>
+            <p>定位线图标颜色：已在原图标定 bbox 为「已标注」态；否则为「未标注原照片位置」。</p>
+        </section>
+
+        <section id="edit">
+            <h2>6. 手工编辑碟片 / 手工建卡 / 多源片名搜索</h2>
+            <h3>A. 编辑已有碟片</h3>
+            <ol>
+                <li>先点版本号后的锁图标解锁。卡片铅笔图标或详情「编辑」→ 「编辑碟片」对话框。</li>
+                <li><strong>对照原图</strong>：对话框左侧（小屏可折叠「对照原图 · 碟脊」）展示该碟所属特写/原照片，并画出库内当前碟脊框（<code>photo_offset_x/y</code> + <code>bbox_w/h</code>，与详情「在原照片中的位置」同源）。滚轮或 ± 缩放、拖拽平移；「定位碟脊」会放大到框附近便于读脊上字再改片名。未标定框时仍可看全图，提示去详情「重新框选」。</li>
+                <li>可改：中文片名、英文片名、发行年份、TMDb / IMDb / TVDB 编号（均可留空）、可选关联源图。</li>
+                <li><strong>同一搜索入口</strong>：对话框内「类型 / 来源」合在一行紧凑分段控件（小标签 + pill；窄屏可各占一行）：类型 <code>全部 | 电影 | 剧集</code> + 来源 <code>全部 | TMDb | IMDb | TVDB</code>（默认均为「全部」）。一次「按片名搜索」并行汇总已开启且有 key 的来源；每条候选带来源徽章。同名同年不同源可并列。底部操作两行：上行搜索/刷新，下行 <code>cancel</code> + <code>save</code>（同为小号按钮，save 为主色）；长说明默认折叠。</li>
+                <li><strong>API Key</strong>（仅桌面可编辑）：对话框内可折叠「API Key」区块（默认折叠）。三行 TMDb / IMDb(OMDb) / TVDB：显示掩码（如 <code>••••abcd</code>，不回显完整 key）、可粘贴新 key 保存或清除；开关控制是否「尝试调用」（关则来源分段禁用且不发请求；开但无 key 时保持提示、不假搜）。保存后立即刷新来源可用性。密钥写入本机 <code>data/api_keys.json</code>，不入库。</li>
+                <li><strong>点选候选</strong>：尽量填片名、年份、海报。TMDb 条目写 <code>tmdb_id</code> + <code>tmdb_media_type</code> 并拉详情；IMDb / TVDB 写 <code>imdb_id</code> / <code>tvdb_id</code> 与海报，<strong>不伪造 tmdb_id</strong>。</li>
+                <li><strong>从 TMDb 刷新</strong>：仅对已有 TMDb 编号有效；保留对话框片名/年份，只补海报与元数据，不改框位。无编号时会先走搜索。</li>
+                <li>侧栏 <strong>补全海报</strong>：仍按已有 <code>tmdb_id</code>（及 <code>tmdb_media_type</code>）批量补缺失海报（不改片名/框/墙坐标）。TMDb 超时请设代理如 <code>HTTP_PROXY=http://127.0.0.1:10808</code>。</li>
+                <li>点 <code>save</code> 写入库（<code>PUT /api/discs/:id</code>）。</li>
+            </ol>
+            <h3>B. 手工建卡（不经 Stage2）</h3>
+            <ol>
+                <li>展开侧栏底栏「功能」后点 <strong>手工建卡</strong>（书签+加号线图标）→ 同一套对话框，标题为「手工建卡」。</li>
+                <li><strong>必填</strong>：中文片名或英文片名至少填一项（可只填其一）。年份与各源编号均可留空。</li>
+                <li><strong>可选源图</strong>：下拉关联已有特写/全景；不选亦可建卡（<code>source_image</code> 为空）。有图后可在详情「重新框选」后补碟脊框与墙面位置。</li>
+                <li>搜索流程与编辑一致：选类型/来源 →「按片名搜索」→ 点选候选填 id/海报；有 TMDb 编号时也可用「从 TMDb 刷新」一并入库。</li>
+                <li>点 <code>save</code> → <code>POST /api/discs</code>；成功后刷新列表并打开该碟详情。</li>
+            </ol>
+            <p class="note">若 Flask 以 <code>DEBUG=False</code> 运行，新增/改过的 API 路由需<strong>重启服务</strong>才会生效。</p>
+        </section>
+
+        <section id="placement">
+            <h2>7. 树视图：特写在墙面位置（多特写托盘）</h2>
+            <ol>
+                <li>切到<strong>树形模式</strong>。</li>
+                <li>解锁编辑后，点击某组头左侧缩略图。</li>
+                <li>弹窗上方托盘列出全部特写：点击或拖到墙面开始编辑当前框。</li>
+                <li>框内拖拽移动；四角手柄缩放；可切换托盘中其他特写依次调整。</li>
+                <li>可选「保存后按 photo_offset 重算对应图下所有碟片的墙面坐标」（默认勾选）。</li>
+                <li>「保存位置」写入；「取消」或点遮罩关闭。</li>
+            </ol>
+            <p class="note">上传流程第 4 步也有批量位置标记（拖框 + 右下角缩放 + 滚轮），可与这里互补。Stage2 导入时若尚未标定 <code>width_ratio</code>/<code>height_ratio</code>，仍会写入碟片（墙面坐标可能需之后重算）。</p>
+        </section>
+
+        <section id="upload">
+            <h2>8. 上传识别</h2>
+            <p>需先解锁编辑。展开侧栏底栏后点「上传识别」打开向导。v3.8 起，步骤 1 的<strong>已上传照片列表</strong>可走「手工碟脊框 → Stage2」高质量路径（与旧四步批量 OCR 分析并存）。</p>
+
+            <h3>A. 经典四步（批量分析）</h3>
+            <ol>
+                <li><strong>上传</strong>：拖入或选择碟脊特写（JPG/PNG/WebP，可多选）。可勾选已有照片删除或重新分析。</li>
+                <li><strong>分析</strong>：后端批处理（OCR + 视觉），显示进度。</li>
+                <li><strong>匹配</strong>：确认 TMDb 候选；可改选、手动搜索、标定碟脊、视觉验证。最后「确认所有匹配并保存」。</li>
+                <li><strong>位置标记</strong>：在墙面背景上摆放本批照片框 → 保存或跳过。</li>
+            </ol>
+
+            <h3>B. 手工碟脊框 → Stage2（推荐高精度）</h3>
+            <ol>
+                <li>打开「上传识别」，在<strong>已上传照片</strong>列表中勾选或点缩略图右上角<strong>线框裁剪图标</strong>。</li>
+                <li>点工具栏「修正碟脊框」（需恰好选 1 张）→ 弹出编辑器（嵌入 <code>spine_boxes_editor</code>）。</li>
+                <li>若尚无框：空模板起步，用「＋ 添加框」或空白处拖拽；有历史框则直接改。改完点<strong>保存到服务端</strong>（快捷键 <kbd>S</kbd>）。角标数字表示已存框数。</li>
+                <li>勾选一张或多张<strong>已有碟脊框</strong>的照片 →「Stage2 识别」。</li>
+                <li>后台异步跑视觉读标题 + TMDb 匹配，并写入 discs（默认重置同图旧碟）。进度在分析步骤区显示；完成后主列表可看到新碟片。</li>
+            </ol>
+            <p class="note">Stage2 依赖本机可达的 LM Studio 与 TMDb（见第 12 节）。无框时无法开跑，会提示先保存框。</p>
+            <p class="note warn">关闭上传弹窗会提示进度可能丢失，确认后再关。</p>
+        </section>
+
+        <section id="manage">
+            <h2>9. 图片管理</h2>
+            <ol>
+                <li>解锁后展开侧栏底栏，点「图片管理」→ 网格列出已上传图（特写 / 全景标签）。</li>
+                <li>单张：重新识别、删除。</li>
+                <li>多选：批量重新识别、批量删除；可用全选。</li>
+            </ol>
+            <p class="note">碟脊框文件按 <code>wall_image.id</code> 存在 <code>data/spine_boxes/</code>；Stage2 结果在 <code>data/spine_results/</code>。图片管理删除图时请知悉：当前以库与上传文件为主，框 JSON 可能仍留在磁盘（可手工清理）。</p>
+        </section>
+
+        <section id="spine">
+            <h2>10. 碟脊框相关</h2>
+            <h3>应用内（主界面有入口）</h3>
+            <ul>
+                <li><strong>上传窗列表</strong>：「修正碟脊框」/ 缩略图右上角线框图标 → 嵌入编辑器，保存到服务端（第 8 节 B）。</li>
+                <li>上传匹配步骤中：「标定碟脊」→ bbox 编辑器在原图上拉框（滚轮缩放、右键/中键拖动画布）— 面向单碟校正。</li>
+                <li>详情「重新框选」：同一套在线编辑器，用于修正原图位置 / 区域重识别。</li>
+            </ul>
+            <h3>离线碟脊框编辑器</h3>
+            <p>独立页：<code>/static/spine_boxes_editor.html</code>。用于修正 stage1 的 <code>spine_boxes_*.json</code>：</p>
+            <ol>
+                <li>选原图 + stage1 JSON → 加载。</li>
+                <li>拖框改位置/大小；空白处拉框或「＋ 添加框」补漏检；可复制/删除。</li>
+                <li>导出 <code>spine_boxes_*_edited.json</code>，再交给离线 stage2 / import 脚本。</li>
+            </ol>
+            <p>嵌入模式（上传窗）与离线模式共用同一套编辑逻辑；嵌入模式多了「保存到服务端」，不再依赖本地选文件。</p>
+            <h3>与离线脚本的关系</h3>
+            <ul>
+                <li>网页 Stage2 ≈ <code>scripts/recognize_spines_with_tmdb.py</code> + <code>scripts/import_spines_to_db.py</code>（Flask 直接调用同一函数）。</li>
+                <li>离线 stage1 仍用 <code>scripts/generate_spine_boxes.py</code>；网页端目前<strong>不强制</strong>先跑 stage1——可空框手工加，或把离线 JSON 内容贴进服务端文件（高级）。</li>
+                <li>命令行批处理示例仍见 <code>scripts/_batch_stage2.py</code>（含本机代理环境变量）。</li>
+            </ul>
+        </section>
+
+        <section id="cards">
+            <h2>11. 卡片其他操作</h2>
+            <ul>
+                <li><strong>喜好心形</strong>：在年份下方、左对齐，竖直落在海报底边一线（无背景圆圈，仅图标）。空心=未标注；实心绿 / 蓝 / 橙为三档色阶。悬停心形后向右滑出一条圆角色条（绿/蓝/橙 + 空心清除）；心形与色条同属一块热区，可直接移入点选。再点当前已选色或点空心可清除。移开热区即收起，未点选不写入。只读时不可改。</li>
+                <li><strong>旗标</strong>：标记 / 取消「识别有误」；墙上标记也会带警示样式。只读时不可改。</li>
+                <li><strong>删除</strong>：双重确认后从库中删除该碟。只读时不可用。</li>
+                <li>可编辑时按住 <kbd>Shift</kbd> 拖墙上碟片标记可改坐标；只读时禁用。</li>
+                <li>点击墙面空白（墙图）可关闭已打开的详情面板。</li>
+                <li><kbd>Esc</kbd>：优先关 AR 放大 / 碟脊框编辑器 / 手册 / 特写位置弹窗 / 详情 / 管理等。</li>
+            </ul>
+        </section>
+
+        <section id="deps">
+            <h2>12. 工具 / 外部能力依赖</h2>
+            <p>以下依据仓库内真实配置与脚本注释整理；密钥本身不写入手册。</p>
+
+            <h3>Flask 本机服务</h3>
+            <ul>
+                <li>入口：项目根目录运行 <code>python app.py</code>（或等价方式启动 Flask）。</li>
+                <li>默认监听 <code>0.0.0.0:5000</code>；本机浏览器访问 <code>http://127.0.0.1:5000</code>。</li>
+                <li>静态资源：<code>/static/…</code>；上传图 <code>/uploads/…</code>；素材照片 <code>/photos/…</code>。</li>
+            </ul>
+
+            <h3>本机 API Key（推荐）</h3>
+            <ul>
+                <li>桌面「编辑碟片 / 手工建卡」弹窗 → 折叠区块 <strong>API Key</strong>：维护 TMDb、IMDb(OMDb)、TVDB。</li>
+                <li>持久化：<code>data/api_keys.json</code>（未入库，已加入 <code>.gitignore</code>）。保存后 Flask 热读内存 config，不必重启即可搜。</li>
+                <li>接口：<code>GET /api/settings/keys</code> 只返回掩码与开关；<code>PUT</code> 更新某源 key / enabled。</li>
+                <li>开关：关 → 来源分段禁用、搜索跳过、不 400；开但无 key → 保持「未配置」提示、不假搜。</li>
+                <li>回退顺序：json 里显式写了 <code>api_key</code>（空字符串=已清除）→ 环境变量 → <code>config.py</code>。</li>
+                <li><strong>勿把真实密钥写进文档或提交到仓库。</strong></li>
+            </ul>
+
+            <h3>TMDb API</h3>
+            <ul>
+                <li>用途：按识别出的片名搜片、拉详情/海报；多源搜索中的默认主源。</li>
+                <li>配置：弹窗 API Key，或环境变量 <code>TMDB_API_KEY</code> / <code>TMDB_ACCESS_TOKEN</code>，或 <code>config.py</code> 回退（离线脚本仍可读 config）。</li>
+                <li>申请：<a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a>。</li>
+                <li>无 key 或已关闭：来源切换里的 <strong>TMDb</strong> 禁用；不会假搜索。</li>
+            </ul>
+
+            <h3>OMDb（IMDb 元数据）</h3>
+            <ul>
+                <li>用途：合法代理访问 IMDb 片名搜索与海报；写入可空字段 <code>imdb_id</code>（如 <code>tt0133093</code>）。</li>
+                <li>配置：弹窗 API Key，或环境变量 <code>OMDB_API_KEY</code>（见项目根 <code>.env.example</code>）。</li>
+                <li>申请：<a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noopener">omdbapi.com/apikey.aspx</a>（免费档即可）。</li>
+                <li>无 key 时：来源切换里的 <strong>IMDb</strong> 禁用并悬停/点击提示「未配置 OMDB_API_KEY」；不会发起假搜索。开关关闭则提示「已关闭该来源的 API 调用」。</li>
+            </ul>
+
+            <h3>TheTVDB v4</h3>
+            <ul>
+                <li>用途：剧集/电影片名搜索；写入可空字段 <code>tvdb_id</code>；海报能取则写入 <code>poster_url</code>。</li>
+                <li>配置：弹窗 API Key，或环境变量 <code>TVDB_API_KEY</code> / <code>THETVDB_API_KEY</code>。</li>
+                <li>申请：<a href="https://thetvdb.com/api-information" target="_blank" rel="noopener">thetvdb.com/api-information</a> 注册项目获取 apikey。</li>
+                <li>无 key 时：来源切换里的 <strong>TVDB</strong> 禁用并提示；不会假搜索。</li>
+            </ul>
+
+            <h3>LM Studio / 本地视觉模型</h3>
+            <ul>
+                <li>代码默认基址：<code>http://192.168.1.41:1234</code>（可用环境变量 <code>LMSTUDIO_BASE</code> 覆盖）。</li>
+                <li>默认模型 id：<code>zai-org/glm-4.6v-flash</code>；可用 <code>VISION_MODEL=…</code> 强制指定，或 <code>VISION_MODEL_AUTO=1</code> 按偏好表在已加载模型中挑选（偏好含 <code>google/gemma-4-31b-qat</code> 等）。</li>
+                <li>识别 / Stage2 / 区域重识别都依赖该 OpenAI 兼容 <code>/v1/chat/completions</code> 接口；服务不可达时上传分析与 Stage2 会失败。</li>
+                <li>需保证跑 Flask 的机器能访问该局域网地址（同网段 / 路由 / 防火墙放行）。</li>
+            </ul>
+
+            <h3>代理（TMDb / OMDb / TVDB）</h3>
+            <ul>
+                <li><code>tmdb_client</code> / <code>omdb_client</code> / <code>tvdb_client</code> 会读取环境变量 <code>HTTP_PROXY</code> / <code>HTTPS_PROXY</code>（及小写形式），缺省回落到 <code>config.TMDB_HTTP_PROXY</code>（常见 <code>http://127.0.0.1:10808</code>）。</li>
+                <li>离线批处理脚本 <code>scripts/_batch_stage2.py</code> 实践中写死示例代理 <code>http://127.0.0.1:10808</code>（注释说明直连易超时）。网页 Flask 进程若未继承 shell 代理，仍可用上述默认。</li>
+                <li>注意：开系统 Tun 时，局域网访问 LM Studio（如 <code>192.168.1.41</code>）可能被劫持；常见做法是把内网段加入 Tun 旁路，或仅对出站 API 域名走代理。</li>
+            </ul>
+
+            <h3>离线脚本与编辑器</h3>
+            <ul>
+                <li><code>scripts/generate_spine_boxes.py</code>：stage1，视觉检出碟脊 bbox → <code>spine_boxes_*.json</code>。</li>
+                <li><code>scripts/recognize_spines_with_tmdb.py</code>：stage2，裁剪框 → 读标题 → TMDb。</li>
+                <li><code>scripts/import_spines_to_db.py</code>：把 stage2 结果写入 SQLite discs（需能定位 <code>wall_images</code>；完整墙面坐标依赖已标定的 width/height_ratio）。</li>
+                <li>编辑器页：<code>static/spine_boxes_editor.html</code>（离线文件模式或 <code>?embed=1&amp;image_id=</code> 嵌入模式）。</li>
+            </ul>
+
+            <h3>本地数据</h3>
+            <ul>
+                <li>SQLite：<code>data/mywall.db</code>（碟片、墙面图元数据等）。</li>
+                <li>本机 API Key：<code>data/api_keys.json</code>（不入库；手册与仓库不写真实 key）。</li>
+                <li>上传文件：<code>uploads/</code>；素材/墙图：<code>photos/</code>（全景默认 <code>photos/test-wall.jpg</code>）。</li>
+                <li>碟脊框：<code>data/spine_boxes/{wall_image_id}.json</code>；Stage2 结果：<code>data/spine_results/{id}.json</code>。</li>
+                <li>应用日志：项目根 <code>app.log</code>。</li>
+            </ul>
+        </section>
+
+        <p class="foot">myWall 使用手册 · 对应 UI v4.0 · 文件 <code>static/docs/manual.html</code></p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,48 @@
+# Secrets / local keys
+data/api_keys.json
+data/api_keys.json.tmp
+.env
+.env.local
+.env.*
+!.env.example
+TMDb key/
+**/TMDb.txt
+
+# Personal disc library
+data/mywall.db
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# Private wall photos and user uploads
+photos/*
+!photos/.gitkeep
+uploads/*
+!uploads/.gitkeep
+
+# Recognition artifacts (personal wall scans)
+out_b_stage1_*/
+out_b_stage2_*
+out_stage2_*
+data/spine_results/
+data/spine_boxes/
+spine_results/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+
+# Local temp / audits
+_tmp_*
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+app.log

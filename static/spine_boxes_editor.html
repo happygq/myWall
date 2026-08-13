@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>myWall - 手工修正碟脊框 v1.4</title>
+  <link rel="stylesheet" href="./css/style.css" />
+  <style>
+    body { background: #0a0a0c; }
+    .tool-wrap { padding: 16px; max-width: 1200px; margin: 0 auto; color: var(--text); }
+    .tool-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+    .tool-panel { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+    .tool-left { flex: 1 1 360px; min-width: 320px; max-width: 420px; }
+    .tool-right { flex: 2 1 600px; min-width: 520px; }
+    .tool-field { margin-bottom: 10px; }
+    input[type="file"], input[type="text"], button { font: inherit; }
+    .btn { cursor: pointer; }
+    #stage { margin-top: 10px; position: relative; background: #060606; border-radius: 10px; overflow: hidden; cursor: crosshair; }
+    #stage img { display: block; user-select: none; -webkit-user-drag: none; }
+    .spine-rect { position: absolute; border: 2px solid #4ade80; background: rgba(74,222,128,0.16); box-sizing: border-box; cursor: move; }
+    .spine-rect.active { border-color: var(--accent); background: rgba(96,165,250,0.16); }
+    .spine-rect-label { position: absolute; left: 0; top: -18px; font-size: 12px; color: var(--gold); background: rgba(0,0,0,0.6); padding: 1px 6px; border-radius: 999px; }
+    .handle { position: absolute; width: 10px; height: 10px; background: #4ade80; border: 1px solid rgba(0,0,0,0.6); box-sizing: border-box; }
+    .handle.tl { left: -6px; top: -6px; cursor: nwse-resize; }
+    .handle.br { right: -6px; bottom: -6px; cursor: nwse-resize; }
+    .rubber-band {
+      position: absolute; border: 2px dashed var(--accent);
+      background: rgba(96,165,250,0.12); box-sizing: border-box; pointer-events: none; z-index: 5;
+    }
+    .rubber-band.copy-drag {
+      border-style: solid; opacity: 0.55;
+      background: rgba(96,165,250,0.22);
+    }
+    .hint { color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+    .hint-callout {
+      margin-top: 10px; padding: 8px 10px; border-radius: 8px;
+      border: 1px solid rgba(250,204,21,0.35); background: rgba(250,204,21,0.08);
+      color: var(--text); font-size: 12px; line-height: 1.5;
+    }
+    .kbd { font-family: ui-monospace, Consolas, monospace; background: rgba(255,255,255,0.06); border: 1px solid var(--border); padding: 1px 6px; border-radius: 6px; }
+    ul#spine-list { list-style: none; padding: 0; margin: 10px 0 0 0; max-height: 420px; overflow: auto; }
+    #spine-list li { padding: 8px 10px; border-top: 1px solid var(--border); cursor: pointer; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+    #spine-list li.active { background: rgba(96,165,250,0.12); border-top-color: rgba(96,165,250,0.45); }
+    #spine-list .li-del { font-size: 11px; color: var(--text-muted); border: 1px solid var(--border); background: transparent; border-radius: 6px; padding: 2px 6px; cursor: pointer; }
+    #spine-list .li-del:hover { color: #f87171; border-color: rgba(248,113,113,0.5); }
+    .tool-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
+    .textarea-mini { width: 100%; min-height: 36px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255,255,255,0.02); padding: 8px; color: var(--text-muted); }
+    .count-badge { font-variant-numeric: tabular-nums; color: var(--gold); }
+    .skip-confirm-link {
+      display: none; font-size: 12px; color: var(--text-muted); background: none; border: none;
+      padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+    }
+    .skip-confirm-link.is-visible { display: inline; }
+    .skip-confirm-link:hover { color: var(--accent); }
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,0.55); align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal-backdrop.is-open { display: flex; }
+    .modal-card {
+      width: min(420px, 100%); background: #141418; border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px; color: var(--text); box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+    }
+    .modal-card h3 { margin: 0 0 8px; font-size: 16px; }
+    .modal-card p { margin: 0 0 14px; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+    .modal-check {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+      font-size: 13px; color: var(--text-muted); cursor: pointer; user-select: none;
+    }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+    body.is-embed .file-only { display: none !important; }
+    body.is-embed .embed-only { display: block !important; }
+    body.is-embed .tool-actions.embed-only { display: flex !important; }
+    body.is-embed span.embed-only,
+    body.is-embed .hint.embed-only { display: inline !important; }
+    .embed-only { display: none; }
+    body.is-embed .tool-wrap { max-width: none; padding: 10px 12px; }
+    body.is-embed .tool-left { max-width: 380px; }
+    #btn-save-server { display: none; }
+    body.is-embed #btn-save-server { display: inline-flex; align-items: center; }
+    .save-status { font-size: 12px; color: var(--text-muted); }
+    .save-status.ok { color: #4ade80; }
+    .save-status.err { color: #f87171; }
+  </style>
+</head>
+<body>
+  <div class="tool-wrap">
+    <h2 style="margin-top:0;">📐 手工修正碟脊框 v1.4 <span class="hint file-only">（离线 json 编辑）</span><span class="hint embed-only">（关联图片 · 可保存到服务端）</span></h2>
+    <div class="tool-row">
+      <div class="tool-panel tool-left">
+        <div class="tool-field file-only">
+          <label class="hint">1) 选择原图</label><br />
+          <input id="input-image" type="file" accept="image/*" />
+        </div>
+        <div class="tool-field file-only">
+          <label class="hint">2) 选择 stage1 json（spine_boxes_*.json）</label><br />
+          <input id="input-json" type="file" accept="application/json" />
+        </div>
+
+        <div class="tool-actions file-only">
+          <button class="btn btn-primary" id="btn-load" type="button">加载</button>
+          <button class="btn btn-secondary" id="btn-reset" type="button">重置</button>
+        </div>
+
+        <div class="tool-field embed-only">
+          <div class="hint" id="embed-meta">加载中…</div>
+        </div>
+        <div class="tool-actions embed-only">
+          <button class="btn btn-secondary" id="btn-reset-embed" type="button">重置</button>
+          <button class="btn btn-primary" id="btn-save-server" type="button" title="快捷键 S">保存到服务端</button>
+          <span class="save-status" id="save-status"></span>
+        </div>
+
+        <div class="hint-callout">
+          stage1 常会<strong>漏检</strong>：若框数量不够，请用「＋ 添加框」或快捷键补上漏检碟，再拖到正确位置。无框时可从空白开始手工添加。
+        </div>
+
+        <div class="tool-actions">
+          <button class="btn btn-primary" id="btn-add" type="button" title="快捷键 A">＋ 添加框</button>
+          <button class="btn btn-secondary" id="btn-copy" type="button" title="快捷键 C，或 Ctrl/⌘+拖拽当前框">复制当前框</button>
+          <button class="btn btn-secondary" id="btn-delete" type="button" title="快捷键 Delete / Backspace">删除框</button>
+          <button class="btn btn-secondary file-only" id="btn-export" type="button" title="快捷键 S">导出 JSON</button>
+          <button class="skip-confirm-link" id="btn-restore-delete-confirm" type="button" title="清除「不再提醒」设置">恢复删除确认</button>
+        </div>
+
+        <p class="hint" style="margin-top:10px;">
+          <strong>鼠标</strong>：拖拽盒子移动；<span class="kbd">Ctrl</span>（Mac：<span class="kbd">⌘</span>）+ 拖拽盒子可复制出新框；拖拽左上/右下角调尺寸；在<strong>空白处拖拽</strong>新建框。<br />
+          <strong>键盘</strong>：
+          <span class="kbd">A</span> 添加 ·
+          <span class="kbd">C</span> 复制 ·
+          <span class="kbd">Delete</span>/<span class="kbd">⌫</span> 删除 ·
+          <span class="kbd">←↑→↓</span> 微调 ·
+          <span class="kbd">[</span>/<span class="kbd">]</span> 缩放 ·
+          <span class="kbd">R</span> 还原当前框 ·
+          <span class="kbd">S</span> <span class="file-only">导出</span><span class="embed-only">保存</span>
+        </p>
+
+        <div class="tool-field" style="margin-top:12px;">
+          <div class="hint">3) 选中 spine（点击编号）· 共 <span id="spine-count" class="count-badge">0</span> 框</div>
+          <ul id="spine-list"></ul>
+        </div>
+      </div>
+
+      <div class="tool-panel tool-right">
+        <div class="hint">4) 画布预览（无需联网）</div>
+        <div id="stage">
+          <img id="stage-img" alt="" />
+          <!-- rect overlay is injected -->
+        </div>
+        <div style="margin-top:12px;">
+          <div class="hint">当前 bbox（归一化 0-1）：</div>
+          <div id="coords-box" class="textarea-mini">未加载</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="delete-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title">
+    <div class="modal-card">
+      <h3 id="delete-confirm-title">确认删除</h3>
+      <p id="delete-confirm-msg">确定删除该框？删除后将按顺序重编号。</p>
+      <label class="modal-check">
+        <input type="checkbox" id="delete-skip-confirm" />
+        不再提醒（仍会删除，只是跳过确认）
+      </label>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="delete-confirm-cancel" type="button">取消</button>
+        <button class="btn btn-primary" id="delete-confirm-ok" type="button">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./js/spine_boxes_editor.js"></script>
+</body>
+</html>
