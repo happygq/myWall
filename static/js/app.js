@@ -73,6 +73,7 @@ const state = {
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
+const tr = (key, params) => window.MyWallI18n ? window.MyWallI18n.t(key, params) : key;
 
 // ===== 工具函数 =====
 function showToast(msg, type = "") {
@@ -131,7 +132,7 @@ function persistEditUnlocked(unlocked) {
 
 function requireEditUnlocked() {
     if (isEditUnlocked()) return true;
-    showToast("只读模式");
+    showToast(tr("toast.readonly"));
     return false;
 }
 
@@ -140,7 +141,7 @@ function syncEditModeToggle(unlocked) {
     if (!btn) return;
     btn.innerHTML = unlocked ? EDIT_MODE_ICONS.unlocked : EDIT_MODE_ICONS.locked;
     btn.setAttribute("aria-pressed", unlocked ? "true" : "false");
-    const title = unlocked ? "可编辑（点击切换为只读）" : "只读模式（点击解锁编辑）";
+    const title = unlocked ? tr("mode.editableHint") : tr("mode.readonlyHint");
     btn.setAttribute("title", title);
     btn.setAttribute("aria-label", title);
 }
@@ -188,7 +189,7 @@ function initEditMode() {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
-        showToast("只读模式");
+        showToast(tr("toast.readonly"));
     }, true);
     document.addEventListener("drop", (e) => {
         if (isEditUnlocked()) return;
@@ -196,7 +197,7 @@ function initEditMode() {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
-        showToast("只读模式");
+        showToast(tr("toast.readonly"));
     }, true);
 }
 
@@ -688,6 +689,14 @@ function displayGenres(rawList) {
     return GENRE_CANONICAL_ORDER.filter(k => seen.has(k)).concat(extras);
 }
 
+function genreDisplayLabel(label) {
+    if (window.MyWallI18n?.getContentLang() === "zh") return label;
+    const keys = canonicalKeysOf(label);
+    const key = keys[0] || label;
+    const group = GENRE_GROUPS.find(([canonical]) => canonical === key);
+    return group?.[1]?.find(alias => /^[\x00-\x7F]+$/.test(alias)) || label;
+}
+
 function orderedGenreLabels(labels) {
     const present = new Set(
         [...(labels || [])].map(x => String(x).trim()).filter(Boolean)
@@ -727,8 +736,8 @@ function populateGenreFilter(rawLabels) {
     const mapped = [];
     for (const g of collected) mapped.push(...displayGenres([g]));
     const options = orderedGenreLabels(mapped);
-    genreEl.innerHTML = '<option value="">全部类型</option>' +
-        options.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
+    genreEl.innerHTML = `<option value="">${tr("filter.allGenres")}</option>` +
+        options.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(genreDisplayLabel(g))}</option>`).join("");
     const canonicalPrev = (canonicalKeysOf(prev)[0] || prev);
     if (canonicalPrev && [...genreEl.options].some(o => o.value === canonicalPrev)) {
         genreEl.value = canonicalPrev;
@@ -1100,6 +1109,15 @@ function initWallSheetHandle() {
 
 // ===== 初始化 =====
 async function init() {
+    if (window.MyWallI18n) {
+        try {
+            await window.MyWallI18n.init();
+            window.MyWallI18n.applyI18n();
+        } catch (error) {
+            console.error("[myWall] locale load failed", error);
+        }
+    }
+    initLanguageSelector();
     initNarrowLayout();
     initEditMode();
     initWallSheetHandle();
@@ -1110,10 +1128,34 @@ async function init() {
         await Promise.all([loadWallImage(), loadDiscs(), loadFilters(), loadStats(), loadImageUrlMap()]);
     } catch (e) {
         console.error("[myWall] init data load failed", e);
-        showToast("部分数据加载失败，可刷新重试", "error");
+        showToast(tr("status.partialLoadError"), "error");
     }
     bindEvents();
     bindWallCoordSync($("#wall-image"), $("#wall-coord-layer"), "cover");
+}
+
+function initLanguageSelector() {
+    const select = $("#ui-language-select");
+    if (!select || !window.MyWallI18n) return;
+    select.value = window.MyWallI18n.getUiLang();
+    select.addEventListener("change", async () => {
+        await window.MyWallI18n.setUiLang(select.value);
+    });
+    window.addEventListener("mywall:ui-language-changed", (event) => {
+        select.value = event.detail.lang;
+        syncEditModeToggle(isEditUnlocked());
+        updateDiscCount(state.discs.length);
+        populateGenreFilter(state.filters?.genres);
+        renderDiscList();
+        if (state.selectedDiscId) showDiscDetail(state.selectedDiscId);
+        syncManualLinks();
+    });
+    syncManualLinks();
+}
+
+function updateDiscCount(count) {
+    const label = $("#stat-label");
+    if (label) label.textContent = tr("stats.discs", { count });
 }
 
 async function loadImageUrlMap() {
@@ -1185,7 +1227,8 @@ async function loadDiscs(keyword = "", genre = "", year = "", preference = "") {
     }
     renderDiscMarkers();
     renderDiscList();
-    $("#stat-count").textContent = state.discs.length;
+    $("#stat-count")?.replaceChildren(document.createTextNode(String(state.discs.length)));
+    updateDiscCount(state.discs.length);
 }
 
 async function loadFilters() {
@@ -1201,7 +1244,7 @@ async function loadFilters() {
     const prevYear = yearEl ? yearEl.value : "";
     populateGenreFilter(data.genres);
     if (yearEl) {
-        yearEl.innerHTML = '<option value="">全部年份</option>' +
+        yearEl.innerHTML = `<option value="">${tr("filter.allYears")}</option>` +
             (data.years || []).map(y => `<option value="${escapeHtml(y)}">${escapeHtml(y)}</option>`).join("");
         if (prevYear && [...yearEl.options].some(o => o.value === prevYear)) {
             yearEl.value = prevYear;
@@ -1211,7 +1254,8 @@ async function loadFilters() {
 
 async function loadStats() {
     const data = await api("/stats");
-    $("#stat-count").textContent = data.total_discs;
+    $("#stat-count")?.replaceChildren(document.createTextNode(String(data.total_discs)));
+    updateDiscCount(data.total_discs);
 }
 
 // ===== 碟片标记 / 特写 AR =====
@@ -1276,7 +1320,7 @@ function renderDiscList() {
     }
     const list = $("#disc-list");
     if (state.discs.length === 0) {
-        list.innerHTML = '<div class="empty-state">暂无碟片</div>';
+        list.innerHTML = `<div class="empty-state">${tr("status.empty")}</div>`;
         return;
     }
     list.innerHTML = state.discs.map(disc => renderDiscCardHtml(disc)).join("");
@@ -1326,12 +1370,14 @@ function setIconTitle(el, iconKey, text) {
     el.innerHTML = `${icon}<span class="modal-title-text">${escapeHtml(String(text || ""))}</span>`;
 }
 
-const PREF_LABELS = {
-    0: "未标注喜好",
-    1: "喜好 · 绿",
-    2: "喜好 · 蓝",
-    3: "喜好 · 橙",
-};
+function preferenceLabel(level) {
+    return tr({
+        0: "preference.none",
+        1: "preference.green",
+        2: "preference.blue",
+        3: "preference.orange",
+    }[level] || "preference.none");
+}
 
 function normalizePreference(value) {
     const n = Number(value);
@@ -1341,12 +1387,14 @@ function normalizePreference(value) {
 function renderPreferenceControl(disc) {
     const pref = normalizePreference(disc.preference);
     const icon = DISC_CARD_ICONS.heartFilled;
-    const title = PREF_LABELS[pref] || PREF_LABELS[0];
+    const title = preferenceLabel(pref);
     const swatches = [1, 2, 3].map(level => {
         const selected = pref === level ? " is-selected" : "";
-        return `<button type="button" class="disc-pref-swatch pref-${level}${selected}" data-pref="${level}" title="${PREF_LABELS[level]}" aria-label="${PREF_LABELS[level]}" onclick="event.stopPropagation();setDiscPreference(${disc.id}, ${level})">${DISC_CARD_ICONS.heartFilled}</button>`;
+        const label = preferenceLabel(level);
+        return `<button type="button" class="disc-pref-swatch pref-${level}${selected}" data-pref="${level}" title="${label}" aria-label="${label}" onclick="event.stopPropagation();setDiscPreference(${disc.id}, ${level})">${DISC_CARD_ICONS.heartFilled}</button>`;
     }).join("");
-    return `<div class="disc-pref" onclick="event.stopPropagation()"><button type="button" class="disc-pref-trigger pref-${pref}" title="${title}" aria-label="${title}" aria-haspopup="true" aria-expanded="false">${icon}</button><div class="disc-pref-menu" role="menu" aria-label="选择喜好">${swatches}<button type="button" class="disc-pref-swatch pref-0${pref === 0 ? " is-selected" : ""}" data-pref="0" title="清除标注" aria-label="清除标注" onclick="event.stopPropagation();setDiscPreference(${disc.id}, 0)">${DISC_CARD_ICONS.heart}</button></div></div>`;
+    const clearLabel = tr("preference.clear");
+    return `<div class="disc-pref" onclick="event.stopPropagation()"><button type="button" class="disc-pref-trigger pref-${pref}" title="${title}" aria-label="${title}" aria-haspopup="true" aria-expanded="false">${icon}</button><div class="disc-pref-menu" role="menu" aria-label="${tr("preference.choose")}">${swatches}<button type="button" class="disc-pref-swatch pref-0${pref === 0 ? " is-selected" : ""}" data-pref="0" title="${clearLabel}" aria-label="${clearLabel}" onclick="event.stopPropagation();setDiscPreference(${disc.id}, 0)">${DISC_CARD_ICONS.heart}</button></div></div>`;
 }
 
 /** 卡片/详情：主英文，副中文译名；无英文回退中文；相同或无中文不重复。 */
@@ -1355,7 +1403,7 @@ function discDisplayTitles(disc) {
     const en = String(disc?.title_en || "").trim();
     const primary = en || cn;
     const same = !!(cn && primary && cn.toLowerCase() === primary.toLowerCase());
-    const secondary = (cn && !same) ? cn : "";
+    const secondary = window.MyWallI18n?.getContentLang() === "zh" && cn && !same ? cn : "";
     return { primary, secondary };
 }
 
@@ -1366,14 +1414,14 @@ function renderDiscCardHtml(disc) {
     const rating = disc.rating ? `<span class="disc-card-rating">⭐ ${disc.rating.toFixed(1)}</span>` : "";
     const active = disc.id === state.selectedDiscId ? "active" : "";
     const flagged = !!disc.flagged;
-    const flagBtnTitle = flagged ? "取消错误标记" : "标记识别错误";
+    const flagBtnTitle = flagged ? tr("card.unflag") : tr("card.flag");
     const flagBadge = flagged
-        ? `<span class="disc-flag-badge" title="已标记为识别有误">识别有误</span>`
+        ? `<span class="disc-flag-badge" title="${tr("card.flagged")}">${tr("card.flagged")}</span>`
         : "";
     // 针图标表示「原照片碟脊 bbox」是否已标定（与墙面 pos 无关）
     const spineLocated = hasSpineBbox(disc);
     const pinClass = spineLocated ? "disc-card-btn-pin is-located" : "disc-card-btn-pin is-unlocated";
-    const pinTitle = spineLocated ? "已标注" : "未标注原照片位置";
+    const pinTitle = spineLocated ? tr("card.spineLocated") : tr("card.spineMissing");
     const { primary, secondary } = discDisplayTitles(disc);
     return `
         <div class="disc-card ${active}${flagged ? " flagged" : ""}" data-disc-id="${disc.id}" onclick="showDiscDetail(${disc.id})">
@@ -1387,9 +1435,9 @@ function renderDiscCardHtml(disc) {
             </div>
             <div class="disc-card-actions">
                 <button type="button" class="disc-card-btn ${pinClass}" onclick="event.stopPropagation();findDisc(${disc.id})" title="${pinTitle}" aria-label="${pinTitle}">${DISC_CARD_ICONS.pin}</button>
-                <button type="button" class="disc-card-btn" onclick="event.stopPropagation();editDisc(${disc.id})" title="编辑" aria-label="编辑">${DISC_CARD_ICONS.pencil}</button>
+                <button type="button" class="disc-card-btn" onclick="event.stopPropagation();editDisc(${disc.id})" title="${tr("action.edit")}" aria-label="${tr("action.edit")}">${DISC_CARD_ICONS.pencil}</button>
                 <button type="button" class="disc-card-btn disc-card-btn-flag ${flagged ? "is-flagged" : ""}" onclick="event.stopPropagation();toggleDiscFlag(${disc.id})" title="${flagBtnTitle}" aria-label="${flagBtnTitle}">${DISC_CARD_ICONS.flag}</button>
-                <button type="button" class="disc-card-btn disc-card-btn-danger" onclick="event.stopPropagation();deleteDiscWithConfirm(${disc.id})" title="删除" aria-label="删除">${DISC_CARD_ICONS.trash}</button>
+                <button type="button" class="disc-card-btn disc-card-btn-danger" onclick="event.stopPropagation();deleteDiscWithConfirm(${disc.id})" title="${tr("action.delete")}" aria-label="${tr("action.delete")}">${DISC_CARD_ICONS.trash}</button>
             </div>
         </div>`;
 }
@@ -1397,7 +1445,7 @@ function renderDiscCardHtml(disc) {
 function renderDiscTree() {
     const list = $("#disc-list");
     if (state.discs.length === 0) {
-        list.innerHTML = '<div class="empty-state">暂无碟片</div>';
+        list.innerHTML = `<div class="empty-state">${tr("status.empty")}</div>`;
         return;
     }
 
@@ -1426,7 +1474,7 @@ function renderDiscTree() {
         const groupId = groupIdPrefix + safeKey;
 
         const labelText = isUncategorized
-            ? "未归类"
+            ? tr("tree.uncategorized")
             : (key.length > 28 ? `${key.slice(0, 12)}…${key.slice(-10)}` : key);
 
         const thumbUrl = sourceImageThumbUrl(key);
@@ -1470,20 +1518,19 @@ async function showDiscDetail(discId) {
         const personLabel = (p) => {
             const cn = (p.name || "").trim();
             const en = (p.name_en || "").trim();
-            if (cn && en && cn !== en) return `${escapeHtml(cn)} / ${escapeHtml(en)}`;
-            return escapeHtml(cn || en || "");
+            return escapeHtml(en || cn || "");
         };
         const dirHtml = (disc.directors || []).map(d => `
             <div class="detail-person">
                 ${d.profile_url ? `<img class="detail-person-avatar" src="${d.profile_url}" alt="" loading="lazy">` : ""}
-                <div><div class="detail-person-name">${personLabel(d)}</div><div class="detail-person-role">导演</div></div>
-            </div>`).join("") || '<span style="color:var(--text-muted)">暂无</span>';
+                <div><div class="detail-person-name">${personLabel(d)}</div><div class="detail-person-role">${tr("detail.director")}</div></div>
+            </div>`).join("") || `<span style="color:var(--text-muted)">${tr("detail.none")}</span>`;
         const castHtml = (disc.cast || []).slice(0, 8).map(c => `
             <div class="detail-person">
                 ${c.profile_url ? `<img class="detail-person-avatar" src="${c.profile_url}" alt="" loading="lazy">` : ""}
-                <div><div class="detail-person-name">${personLabel(c)}</div><div class="detail-person-role">${c.character ? `饰 ${escapeHtml(c.character)}` : "演员"}</div></div>
-            </div>`).join("") || '<span style="color:var(--text-muted)">暂无</span>';
-        const genreHtml = genreLabels(disc).map(g => `<span class="detail-genre">${escapeHtml(g)}</span>`).join("");
+                <div><div class="detail-person-name">${personLabel(c)}</div><div class="detail-person-role">${c.character ? escapeHtml(c.character) : tr("detail.actor")}</div></div>
+            </div>`).join("") || `<span style="color:var(--text-muted)">${tr("detail.none")}</span>`;
+        const genreHtml = genreLabels(disc).map(g => `<span class="detail-genre">${escapeHtml(genreDisplayLabel(g))}</span>`).join("");
 
         // AR 叠加层：在原照片中高亮碟片位置
         let arSectionHtml = "";
@@ -1510,17 +1557,17 @@ async function showDiscDetail(discId) {
 
             arSectionHtml = `
             <div class="detail-section">
-                <h3>${DISC_CARD_ICONS.pin}<span>在原照片中的位置</span></h3>
+                <h3>${DISC_CARD_ICONS.pin}<span>${tr("detail.sourcePosition")}</span></h3>
                 <div class="ar-container" onclick="openArZoom()">
-                    <img class="ar-source-image" src="${disc.source_image_url}" alt="原照片">
+                    <img class="ar-source-image" src="${disc.source_image_url}" alt="${tr("detail.sourcePhotoAlt")}">
                     <div class="ar-highlight-rect" style="${highlightStyle}"></div>
                 </div>
                 <div class="ar-actions">
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openDiscBboxEditor(${disc.id})">重新框选</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openDiscBboxEditor(${disc.id})">${tr("action.reselect")}</button>
                 </div>
                 ${hasPosition
-                    ? `<div class="ar-hint">点击照片可放大查看 · 可重新框选修正位置</div>`
-                    : `<div class="ar-hint" style="color:var(--gold)">⚠ 尚未标定具体位置，点击「重新框选」标定</div>`}
+                    ? `<div class="ar-hint">${tr("detail.sourcePositionHint")}</div>`
+                    : `<div class="ar-hint" style="color:var(--gold)">⚠ ${tr("detail.sourcePositionMissing")}</div>`}
             </div>`;
         } else {
             state._arData = null;
@@ -1534,17 +1581,17 @@ async function showDiscDetail(discId) {
             ${titles.secondary ? `<div class="detail-title-en">${escapeHtml(titles.secondary)}</div>` : ""}
             <div class="detail-meta">
                 ${disc.year ? `<span class="detail-meta-item">${disc.year}</span>` : ""}
-                ${disc.runtime ? `<span class="detail-meta-item">${disc.runtime}分钟</span>` : ""}
+                ${disc.runtime ? `<span class="detail-meta-item">${tr("detail.runtimeMinutes", { minutes: disc.runtime })}</span>` : ""}
                 ${disc.rating ? `<span class="detail-rating">${disc.rating.toFixed(1)}<small>/10</small></span>` : ""}
             </div>
             ${genreHtml ? `<div class="detail-genres">${genreHtml}</div>` : ""}
-            <div class="detail-section"><h3>简介</h3><p class="detail-synopsis">${disc.synopsis_cn || "暂无"}</p>${disc.synopsis_en ? `<p class="detail-synopsis" style="margin-top:8px;color:var(--text-muted);font-style:italic">${disc.synopsis_en}</p>` : ""}</div>
+            <div class="detail-section"><h3>${tr("detail.synopsis")}</h3><p class="detail-synopsis">${escapeHtml(disc.synopsis_en || disc.synopsis_cn || tr("detail.noSynopsis"))}</p></div>
             ${arSectionHtml}
-            <div class="detail-section"><h3>导演</h3><div class="detail-people">${dirHtml}</div></div>
-            <div class="detail-section"><h3>主演</h3><div class="detail-people">${castHtml}</div></div>
+            <div class="detail-section"><h3>${tr("detail.director")}</h3><div class="detail-people">${dirHtml}</div></div>
+            <div class="detail-section"><h3>${tr("detail.cast")}</h3><div class="detail-people">${castHtml}</div></div>
             <div class="detail-actions">
-                <button type="button" class="btn btn-primary" onclick="findDisc(${disc.id})">${DISC_CARD_ICONS.pin}<span>定位位置</span></button>
-                <button type="button" class="btn btn-secondary" onclick="editDisc(${disc.id})">${DISC_CARD_ICONS.pencil}<span>编辑</span></button>
+                <button type="button" class="btn btn-primary" onclick="findDisc(${disc.id})">${DISC_CARD_ICONS.pin}<span>${tr("action.locate")}</span></button>
+                <button type="button" class="btn btn-secondary" onclick="editDisc(${disc.id})">${DISC_CARD_ICONS.pencil}<span>${tr("action.edit")}</span></button>
             </div>`;
 
         $("#detail-panel").classList.remove("hidden");
@@ -1559,7 +1606,7 @@ async function showDiscDetail(discId) {
         if (disc.source_image) renderPhotoArOverlay(disc.source_image);
         else clearPhotoArOverlay();
     } catch (e) {
-        showToast("加载详情失败: " + e.message, "error");
+        showToast(tr("status.detailLoadError", { message: e.message }), "error");
     }
 }
 
@@ -1574,14 +1621,26 @@ function closeDetail() {
 
 // ===== 使用手册 =====
 
-const MANUAL_SRC = "/static/docs/manual.html?v=3.16f";
+function manualSrc() {
+    return window.MyWallI18n?.getUiLang() === "zh"
+        ? "/static/docs/manual.html?v=3.16f"
+        : "/static/docs/manual.en.html?v=5.0b";
+}
+
+function syncManualLinks() {
+    const src = manualSrc();
+    const link = $("#manual-new-tab");
+    const iframe = $("#manual-iframe");
+    if (link) link.href = src;
+    if (iframe && iframe.getAttribute("src") !== "about:blank") iframe.src = src;
+}
 
 function openManualModal() {
     const modal = $("#manual-modal");
     const iframe = $("#manual-iframe");
     if (!modal || !iframe) return;
     if (!iframe.getAttribute("src") || iframe.getAttribute("src") === "about:blank") {
-        iframe.src = MANUAL_SRC;
+        iframe.src = manualSrc();
     }
     modal.classList.remove("hidden");
 }
@@ -1614,7 +1673,7 @@ function findDisc(discId) {
     const disc = state.discs.find(d => d.id === discId);
     if (!disc) return;
     if (disc.pos_x === 0 && disc.pos_y === 0) {
-        showToast("该碟片尚未标记位置", "error");
+        showToast(tr("toast.positionMissing"), "error");
         return;
     }
     state.highlightedDiscId = discId;
@@ -1646,7 +1705,7 @@ function findDisc(discId) {
             clearPhotoArOverlay();
         }
     }, 5000);
-    showToast(`已标记 "${disc.title_cn}" 的位置`, "success");
+    showToast(tr("toast.positionMarked", { title: discDisplayTitles(disc).primary }), "success");
 }
 
 async function doSearch() {
@@ -3214,7 +3273,7 @@ function renderGenreCloud() {
     const counts = libraryCountsForCloud();
     if (state.filters) state.filters.genre_counts = counts;
     if (!counts.length) {
-        root.innerHTML = '<p class="genre-cloud-empty">暂无类型数据</p>';
+        root.innerHTML = `<p class="genre-cloud-empty">${tr("status.noGenreData")}</p>`;
         resetGenreCloudBox(root);
         genreCloudPackedWidth = -1;
         return;
@@ -3229,7 +3288,8 @@ function renderGenreCloud() {
     root.innerHTML = ordered.map(item => {
         const st = genreCloudStyle(item.count, minCount, maxCount, sizeMin, sizeMax);
         const isActive = item.label === active;
-        return `<button type="button" class="genre-cloud-word${isActive ? " is-active" : ""}" data-genre="${escapeHtml(item.label)}" data-count="${item.count}" data-base-size="${st.size}" data-rank="${st.rank}" aria-label="${escapeHtml(item.label)}，${item.count} 张" aria-pressed="${isActive ? "true" : "false"}" style="font-size:${st.size}px;font-weight:${st.weight};--genre-cloud-fg:${st.color}"><span class="genre-cloud-label">${escapeHtml(item.label)}</span></button>`;
+        const displayLabel = genreDisplayLabel(item.label);
+        return `<button type="button" class="genre-cloud-word${isActive ? " is-active" : ""}" data-genre="${escapeHtml(item.label)}" data-count="${item.count}" data-base-size="${st.size}" data-rank="${st.rank}" aria-label="${escapeHtml(displayLabel)}, ${item.count}" aria-pressed="${isActive ? "true" : "false"}" style="font-size:${st.size}px;font-weight:${st.weight};--genre-cloud-fg:${st.color}"><span class="genre-cloud-label">${escapeHtml(displayLabel)}</span></button>`;
     }).join("");
     packGenreCloud(root);
 }
@@ -5209,7 +5269,7 @@ async function setDiscPreference(discId, preference) {
         }
         renderDiscList();
         renderDiscMarkers();
-        showToast(PREF_LABELS[next] || "已更新喜好", "success");
+        showToast(preferenceLabel(next) || tr("toast.updated"), "success");
     } catch (e) {
         showToast("喜好标注失败: " + e.message, "error");
     }

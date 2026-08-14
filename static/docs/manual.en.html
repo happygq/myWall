@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>myWall User Manual — v4.1</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { color-scheme: dark; --bg:#121212; --surface:#181818; --text:#fff; --muted:#b3b3b3; --green:#1ed760; }
+        * { box-sizing: border-box; }
+        body { margin:0; background:var(--bg); color:var(--text); font:14px/1.55 Outfit,"Helvetica Neue",Arial,sans-serif; }
+        main { width:min(720px,100%); margin:auto; padding:32px 24px 64px; }
+        header { padding-bottom:20px; border-bottom:1px solid #333; }
+        h1 { margin:0; font-size:26px; } h1 span { color:var(--green); }
+        h2 { margin:28px 0 8px; font-size:18px; }
+        p,li { color:var(--muted); } strong { color:var(--text); }
+        nav { margin:24px 0; padding:16px; border-radius:8px; background:var(--surface); }
+        nav a { color:var(--muted); margin-right:16px; } nav a:hover { color:var(--green); }
+        code { color:var(--green); }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <h1><span>●</span> myWall <small>v4.1</small></h1>
+        <p>Your visual disc library: browse the wall, search the catalog, inspect metadata, and maintain recognition results.</p>
+    </header>
+    <nav>
+        <a href="#browse">Browse</a><a href="#search">Search</a><a href="#edit">Edit</a><a href="#language">Language</a>
+    </nav>
+    <section id="browse">
+        <h2>Browse your library</h2>
+        <p>Use <strong>List</strong> for a compact catalog or <strong>Folders</strong> to group discs by source photo. Select a card to open its details. The pin action locates a disc on the wall when position data is available.</p>
+    </section>
+    <section id="search">
+        <h2>Search and filters</h2>
+        <p>Search matches titles, directors, and cast. Narrow results by genre, year, or preference. The genre-cloud button opens a visual hot-word filter.</p>
+    </section>
+    <section id="edit">
+        <h2>Read-only and editing</h2>
+        <p>myWall starts in read-only mode. Use the lock beside the version number to enable editing. The Tools tray then provides upload, manual card creation, image management, and poster completion.</p>
+    </section>
+    <section id="language">
+        <h2>Language</h2>
+        <p>Choose <strong>English</strong> or <strong>简体中文</strong> from the Language menu. The choice is saved in <code>localStorage</code>. Japanese and Korean UI dictionaries are planned for a later milestone.</p>
+    </section>
+    <p>This concise English manual covers the core workflow. A full translation of the advanced recognition and placement chapters will follow.</p>
+</main>
+</body>
+</html>

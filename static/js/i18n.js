@@ -64,6 +64,27 @@
         return interpolate(active[key] ?? english[key] ?? key, params);
     }
 
+    function applyI18n(root) {
+        const scope = root || global.document;
+        scope.querySelectorAll("[data-i18n]").forEach((element) => {
+            element.textContent = t(element.dataset.i18n);
+        });
+        scope.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+            element.setAttribute("placeholder", t(element.dataset.i18nPlaceholder));
+        });
+        scope.querySelectorAll("[data-i18n-title]").forEach((element) => {
+            element.setAttribute("title", t(element.dataset.i18nTitle));
+        });
+        scope.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
+            element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
+        });
+        scope.querySelectorAll("[data-i18n-alt]").forEach((element) => {
+            element.setAttribute("alt", t(element.dataset.i18nAlt));
+        });
+        const titleKey = global.document.documentElement.dataset.i18nTitle;
+        if (titleKey) global.document.title = t(titleKey);
+    }
+
     async function setUiLang(value) {
         const lang = normalizeLang(value, DEFAULT_UI_LANG);
         await Promise.all([
@@ -72,6 +93,7 @@
         ]);
         writePreference(UI_LANG_KEY, lang);
         global.document.documentElement.lang = lang;
+        applyI18n();
         global.dispatchEvent(new CustomEvent("mywall:ui-language-changed", {
             detail: { lang },
         }));
@@ -103,6 +125,7 @@
         DEFAULT_CONTENT_LANG,
         init,
         t,
+        applyI18n,
         getUiLang,
         setUiLang,
         getContentLang,
@@ -112,4 +135,5 @@
 
     global.MyWallI18n = api;
     global.t = t;
+    global.applyI18n = applyI18n;
 })(window);

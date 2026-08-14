@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en" data-i18n-title="app.title">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>myWall v4.1 — 我的光碟墙</title>
+    <title>myWall v4.1 — Disc Library</title>
     <script>
     (function () {
         function coarse() {
@@ -41,13 +41,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=3.16e">
+    <link rel="stylesheet" href="/static/css/style.css?v=5.0b">
 </head>
 <body class="readonly">
 
     <!-- 墙面背景：叠加层锁在 wall-coord-layer（与墙图 object-fit 内容框对齐） -->
     <div id="wall-container">
-        <img id="wall-image" src="" alt="光碟墙" data-fit="cover">
+        <img id="wall-image" src="" alt="Disc wall" data-i18n-alt="wall.imageAlt" data-fit="cover">
         <div class="wall-coord-layer" id="wall-coord-layer">
             <div id="photo-ar-overlays"></div>
             <div id="disc-markers"></div>
@@ -59,15 +59,15 @@
     <aside id="sidebar">
         <div class="panel-drag-bar panel-drag-handle" data-panel-drag="sidebar" title="左右拖动侧栏以查看墙面（双击复位）" role="button" tabindex="0" aria-label="拖动侧栏">
             <span class="panel-drag-grip" aria-hidden="true">⋮⋮</span>
-            <span class="panel-drag-label">拖动侧栏</span>
+            <span class="panel-drag-label">Drag sidebar</span>
         </div>
         <div class="wall-sheet-handle" id="wall-sheet-handle" role="button" tabindex="-1" aria-hidden="true" aria-controls="wall-container" aria-expanded="true" title="上滑隐藏墙面" aria-label="上滑隐藏墙面，下滑显示墙面">
             <span class="wall-sheet-handle-bar" aria-hidden="true"></span>
         </div>
         <div class="sidebar-header">
             <div class="sidebar-header-row">
-                <h1><span class="brand-mark">●</span>myWall <span class="version-cluster"><span class="version-tag">v4.1</span><button type="button" class="edit-mode-toggle" id="btn-edit-mode" aria-pressed="false" title="只读模式（点击解锁编辑）" aria-label="只读模式，点击解锁编辑"><svg class="edit-mode-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="11" width="14" height="10.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M8 11V7.25a4 4 0 0 1 8 0V11"/></svg></button></span></h1>
-                <button type="button" class="sidebar-icon-btn" id="btn-manual" title="使用手册" aria-label="使用手册">
+                <h1><span class="brand-mark">●</span>myWall <span class="version-cluster"><span class="version-tag">v4.1</span><button type="button" class="edit-mode-toggle" id="btn-edit-mode" aria-pressed="false" title="Read-only mode (click to unlock editing)" aria-label="Read-only mode (click to unlock editing)"><svg class="edit-mode-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="11" width="14" height="10.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M8 11V7.25a4 4 0 0 1 8 0V11"/></svg></button></span></h1>
+                <button type="button" class="sidebar-icon-btn" id="btn-manual" title="User Manual" aria-label="User Manual" data-i18n-title="manual.title" data-i18n-aria-label="manual.title">
                     <svg class="sidebar-icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
                               d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
@@ -78,7 +78,16 @@
                     </svg>
                 </button>
             </div>
-            <span class="subtitle">双通道识别 · 手工编辑 · 置信度可视</span>
+            <span class="subtitle" data-i18n="app.subtitle">Dual-channel recognition · Manual editing · Visible confidence</span>
+            <label class="language-control" for="ui-language-select">
+                <span data-i18n="language.label">Language</span>
+                <select id="ui-language-select" aria-label="Interface language" data-i18n-aria-label="language.ui">
+                    <option value="en">English</option>
+                    <option value="zh">简体中文</option>
+                    <option value="ja" disabled>日本語 · Soon</option>
+                    <option value="ko" disabled>한국어 · Soon</option>
+                </select>
+            </label>
         </div>
 
         <div class="view-mode-toggle">
@@ -86,35 +95,35 @@
                 <span class="view-mode-icon" aria-hidden="true">
                     <svg class="disc-card-icon" viewBox="0 0 24 24" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M5 7h14M5 12h14M5 17h14"/></svg>
                 </span>
-                列表模式
+                <span data-i18n="view.list">List</span>
             </button>
             <button class="view-mode-btn" data-mode="tree" id="btn-mode-tree">
                 <span class="view-mode-icon" aria-hidden="true">
                     <svg class="disc-card-icon" viewBox="0 0 24 24" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M3 7h6l2 2h10v10H3V7z"/></svg>
                 </span>
-                树形模式
+                <span data-i18n="view.tree">Folders</span>
             </button>
         </div>
 
         <div class="search-box">
-            <input type="text" id="search-input" placeholder="搜索片名、导演、演员...">
-            <button id="search-btn" type="button" title="搜索" aria-label="搜索">
+            <input type="text" id="search-input" placeholder="Search titles, directors, cast…" data-i18n-placeholder="search.placeholder">
+            <button id="search-btn" type="button" title="Search" aria-label="Search" data-i18n-title="action.search" data-i18n-aria-label="action.search">
                 <svg class="disc-card-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle fill="none" stroke="currentColor" stroke-width="1.75" cx="11" cy="11" r="6.25"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M16.5 16.5L21 21"/></svg>
             </button>
         </div>
 
         <div class="filter-section">
             <div class="filter-row">
-                <select id="filter-genre"><option value="">全部类型</option></select>
-                <select id="filter-year"><option value="">全部年份</option></select>
-                <select id="filter-preference" title="按喜好筛选">
-                    <option value="">全部喜好</option>
-                    <option value="1">喜好 · 绿</option>
-                    <option value="2">喜好 · 蓝</option>
-                    <option value="3">喜好 · 橙</option>
-                    <option value="0">未标注</option>
+                <select id="filter-genre"><option value="" data-i18n="filter.allGenres">All genres</option></select>
+                <select id="filter-year"><option value="" data-i18n="filter.allYears">All years</option></select>
+                <select id="filter-preference" title="Filter by preference">
+                    <option value="" data-i18n="filter.preference">All preferences</option>
+                    <option value="1" data-i18n="filter.preference.green">Preference · Green</option>
+                    <option value="2" data-i18n="filter.preference.blue">Preference · Blue</option>
+                    <option value="3" data-i18n="filter.preference.orange">Preference · Orange</option>
+                    <option value="0" data-i18n="filter.preference.none">Not marked</option>
                 </select>
-                <button type="button" class="sidebar-icon-btn" id="btn-genre-cloud" title="热词筛选" aria-label="热词筛选" aria-haspopup="dialog" aria-controls="genre-cloud-modal" aria-expanded="false">
+                <button type="button" class="sidebar-icon-btn" id="btn-genre-cloud" title="Genre cloud" aria-label="Genre cloud" data-i18n-title="filter.hotWords" data-i18n-aria-label="filter.hotWords" aria-haspopup="dialog" aria-controls="genre-cloud-modal" aria-expanded="false">
                     <svg class="sidebar-icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <rect x="2.6" y="5" width="11.2" height="7.6" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/>
                         <rect x="15.2" y="3.8" width="6.2" height="4.8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.75"/>
@@ -126,11 +135,11 @@
         </div>
 
         <div class="stats-bar" id="stats-bar">
-            <span class="stat">共 <strong id="stat-count">0</strong> 张</span>
+            <span class="stat"><span id="stat-label">0 discs</span></span>
         </div>
 
         <div class="disc-list" id="disc-list">
-            <div class="empty-state">加载中...</div>
+            <div class="empty-state" data-i18n="status.loading">Loading…</div>
         </div>
 
         <div class="wall-brightness" id="wall-brightness-control">
@@ -140,7 +149,7 @@
                     <path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"
                           d="M12 3.5v1.6M12 18.9v1.6M3.5 12h1.6M18.9 12h1.6M6.05 6.05l1.13 1.13M16.82 16.82l1.13 1.13M6.05 17.95l1.13-1.13M16.82 7.18l1.13-1.13"/>
                 </svg>
-                <span class="wall-brightness-text">明暗</span>
+                <span class="wall-brightness-text" data-i18n="wall.brightness">Brightness</span>
             </label>
             <input type="range" id="wall-brightness-slider" min="30" max="100" value="50" step="1"
                    aria-valuemin="30" aria-valuemax="100" aria-valuenow="50" aria-label="墙面背景亮度">
@@ -152,26 +161,26 @@
                 <div class="sidebar-footer-actions">
                     <button class="btn btn-primary" id="btn-upload" type="button" data-edit-only>
                         <svg class="disc-card-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M4 8h3.2l1.6-2h6.4l1.6 2H20a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle fill="none" stroke="currentColor" stroke-width="1.75" cx="12" cy="13" r="3.25"/></svg>
-                        <span class="btn-label">上传识别</span>
+                        <span class="btn-label" data-i18n="action.upload">Upload &amp; Scan</span>
                     </button>
                     <button class="btn btn-secondary" id="btn-create-disc" type="button" data-edit-only title="从零新建碟片（不经 Stage2）">
                         <svg class="disc-card-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M8 4h8a2 2 0 0 1 2 2v14l-6-3-6 3V6a2 2 0 0 1 2-2z"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M12 9v5M9.5 11.5h5"/></svg>
-                        <span class="btn-label">手工建卡</span>
+                        <span class="btn-label" data-i18n="action.addDisc">Add Disc</span>
                     </button>
                     <button class="btn btn-secondary" id="btn-manage" type="button" data-edit-only>
                         <svg class="disc-card-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M4 5h16v14H4V5z"/><circle fill="none" stroke="currentColor" stroke-width="1.75" cx="9" cy="10" r="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.5-4.5L12 15l3-3.5L20 16"/></svg>
-                        <span class="btn-label">图片管理</span>
+                        <span class="btn-label" data-i18n="action.manageImages">Manage Images</span>
                     </button>
                     <button class="btn btn-secondary" id="btn-enrich-posters" type="button" data-edit-only title="按已有 TMDb 编号补海报/简介，不改片名与碟脊框">
                         <svg class="disc-card-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-2.6-6.35M21 3v6h-6"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M8 14.5h8M8 11h5"/></svg>
-                        <span class="btn-label">补全海报</span>
+                        <span class="btn-label" data-i18n="action.enrichPosters">Complete Posters</span>
                     </button>
                 </div>
             </div>
             <button type="button" class="sidebar-footer-toggle" id="btn-sidebar-tools"
                     aria-expanded="false" aria-controls="sidebar-footer-sheet" aria-label="展开功能" title="功能">
                 <span class="sidebar-footer-grip" aria-hidden="true"></span>
-                <span class="sidebar-footer-toggle-label">功能</span>
+                <span class="sidebar-footer-toggle-label" data-i18n="nav.functions">Tools</span>
                 <svg class="sidebar-footer-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M6 14l6-6 6 6"/>
                 </svg>
@@ -610,7 +619,7 @@
                         <rect x="13.4" y="11" width="8" height="9.2" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/>
                         <circle cx="8.2" cy="17.8" r="2.4" fill="none" stroke="currentColor" stroke-width="1.75"/>
                     </svg>
-                    <span class="modal-title-text">热词筛选</span>
+                    <span class="modal-title-text" data-i18n="dialog.hotWords">Genre cloud</span>
                 </h2>
                 <div class="modal-header-actions">
                     <button type="button" class="modal-close" id="modal-close-genre-cloud" aria-label="关闭">✕</button>
@@ -636,14 +645,14 @@
         <div class="modal-overlay" id="manual-overlay"></div>
         <div class="modal-content modal-manual">
             <div class="modal-header">
-                <h2>使用手册</h2>
+                <h2 data-i18n="manual.title">User Manual</h2>
                 <div class="modal-header-actions">
-                    <a class="btn btn-sm btn-secondary" href="/static/docs/manual.html" target="_blank" rel="noopener" title="新标签页打开">新标签页</a>
+                    <a class="btn btn-sm btn-secondary" id="manual-new-tab" href="/static/docs/manual.en.html" target="_blank" rel="noopener" title="Open in new tab" data-i18n-title="action.openNewTab" data-i18n="action.openNewTab">Open in new tab</a>
                     <button type="button" class="modal-close" id="modal-close-manual" aria-label="关闭">✕</button>
                 </div>
             </div>
             <div class="modal-body modal-manual-body">
-                <iframe id="manual-iframe" class="manual-iframe" title="myWall 使用手册" src="about:blank"></iframe>
+                <iframe id="manual-iframe" class="manual-iframe" title="myWall User Manual" data-i18n-title="manual.iframeTitle" src="about:blank"></iframe>
             </div>
         </div>
     </div>
@@ -651,7 +660,7 @@
     <!-- Toast -->
     <div id="toast" class="toast hidden"></div>
 
-    <script src="/static/js/i18n.js?v=5.0a"></script>
-    <script src="/static/js/app.js?v=3.16f"></script>
+    <script src="/static/js/i18n.js?v=5.0b"></script>
+    <script src="/static/js/app.js?v=5.0b"></script>
 </body>
 </html>

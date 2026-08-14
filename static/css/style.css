@@ -484,6 +484,27 @@ body.panel-is-dragging #wall-container {
     line-height: 1.2;
 }
 
+.language-control {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.language-control select {
+    width: auto;
+    min-width: 126px;
+    padding: 5px 28px 5px 10px;
+    border-radius: 9999px;
+    background-color: var(--bg-mid);
+    color: var(--text-base);
+    font-size: 12px;
+}
+
 .sidebar-header .brand-mark {
     color: var(--spotify-green);
     margin-right: 2px;
