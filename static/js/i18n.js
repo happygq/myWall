@@ -51,7 +51,7 @@
         const normalized = normalizeLang(lang, DEFAULT_UI_LANG);
         if (dictionaries.has(normalized)) return dictionaries.get(normalized);
 
-        const response = await global.fetch(`/static/locales/${normalized}.json?v=5.0p`);
+        const response = await global.fetch(`/static/locales/${normalized}.json?v=5.0s`);
         if (!response.ok) {
             throw new Error(`Unable to load locale "${normalized}" (${response.status})`);
         }
