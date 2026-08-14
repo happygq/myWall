@@ -1499,9 +1499,10 @@ function discDisplayTitles(disc) {
 }
 
 function renderDiscCardHtml(disc) {
+    const posterFallback = '<div class="disc-card-poster placeholder" aria-hidden="true">🎬</div>';
     const poster = disc.poster_url
-        ? `<img class="disc-card-poster" src="${disc.poster_url}" alt="" loading="lazy" onerror="this.style.display='none'">`
-        : '<div class="disc-card-poster placeholder">🎬</div>';
+        ? `${posterFallback}<img class="disc-card-poster" src="${escapeHtml(disc.poster_url)}" alt="" loading="lazy" onerror="this.remove()">`
+        : posterFallback;
     const rating = disc.rating ? `<span class="disc-card-rating">⭐ ${disc.rating.toFixed(1)}</span>` : "";
     const active = disc.id === state.selectedDiscId ? "active" : "";
     const flagged = !!disc.flagged;
