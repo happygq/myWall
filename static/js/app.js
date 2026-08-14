@@ -1203,11 +1203,21 @@ function initLanguageSelector() {
             }
         });
     });
-    control.addEventListener("mouseleave", () => {
-        if (!control.contains(document.activeElement)) {
-            control.classList.remove("is-hover-suppressed");
-            setOpen(false);
+    // is-hover-suppressed 只用于「切换语言 / Esc 之后指针仍停在控件上」这一瞬间：
+    // 指针进出控件时必须清掉，否则 hover 展开会一直失效（此前只有点击才会清除）。
+    // 指针离开时若焦点还留在控件内（切换后会 focus 回触发器），需要一起收掉，
+    // 免得 :focus-within 让菜单在鼠标已离开时重新滑出。
+    const clearHoverSuppression = ({ blurInside = false } = {}) => {
+        if (!control.classList.contains("is-hover-suppressed")) return;
+        control.classList.remove("is-hover-suppressed");
+        if (blurInside && document.activeElement instanceof HTMLElement && control.contains(document.activeElement)) {
+            document.activeElement.blur();
         }
+    };
+    control.addEventListener("mouseenter", () => clearHoverSuppression());
+    control.addEventListener("mouseleave", () => {
+        clearHoverSuppression({ blurInside: true });
+        if (!control.contains(document.activeElement)) setOpen(false);
     });
     control.addEventListener("keydown", event => {
         if (event.key !== "Escape") return;
