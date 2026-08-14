@@ -1160,11 +1160,12 @@ function initLanguageSelector() {
     if (!control || !trigger || !options.length || !window.MyWallI18n) return;
 
     const languages = {
-        en: { flag: "/static/img/flags/us.svg", label: "English" },
-        zh: { flag: "/static/img/flags/cn.svg", label: "简体中文" },
-        ja: { flag: "/static/img/flags/jp.svg", label: "日本語" },
-        ko: { flag: "/static/img/flags/kr.svg", label: "한국어" },
+        en: { chip: "EN", label: "English" },
+        zh: { chip: "中", label: "简体中文" },
+        ja: { chip: "日", label: "日本語" },
+        ko: { chip: "한", label: "한국어" },
     };
+    const languageChipClasses = Object.keys(languages).map(lang => `language-chip--${lang}`);
 
     const setOpen = (open, suppressHover = false) => {
         control.classList.toggle("is-open", open);
@@ -1174,12 +1175,15 @@ function initLanguageSelector() {
 
     const syncLanguageControl = (lang) => {
         const language = languages[lang] || languages.en;
-        const flag = trigger.querySelector(".language-flag");
-        if (flag) flag.src = language.flag;
+        const activeLang = languages[lang] ? lang : "en";
+        trigger.classList.remove(...languageChipClasses);
+        trigger.classList.add(`language-chip--${activeLang}`);
+        trigger.textContent = language.chip;
+        trigger.dataset.lang = activeLang;
         trigger.setAttribute("aria-label", language.label);
         trigger.setAttribute("title", language.label);
         options.forEach(option => {
-            option.setAttribute("aria-selected", String(option.dataset.lang === lang));
+            option.setAttribute("aria-selected", String(option.dataset.lang === activeLang));
         });
     };
 
