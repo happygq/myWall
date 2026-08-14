@@ -319,6 +319,7 @@
   "edit.sourceTagPanoramic": "panoramic",
   "edit.sourceTagCloseup": "close-up",
   "edit.sourceCurrent": "current",
+  "edit.sourceAllAvailable": "all enabled sources",
   "edit.createHintNoPhoto": "You can create without a photo; link source and boxes later",
   "meta.typeMovie": "Movie",
   "meta.typeTv": "TV",

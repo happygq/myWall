@@ -319,6 +319,7 @@
   "edit.sourceTagPanoramic": "全景",
   "edit.sourceTagCloseup": "特写",
   "edit.sourceCurrent": "当前",
+  "edit.sourceAllAvailable": "全部可用来源",
   "edit.createHintNoPhoto": "可不关联照片直接建卡；有图时可后补碟脊框",
   "meta.typeMovie": "电影",
   "meta.typeTv": "剧集",

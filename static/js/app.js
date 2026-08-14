@@ -81,7 +81,6 @@ function refreshDynamicUi() {
     if (window.MyWallI18n) window.MyWallI18n.applyI18n();
     refreshDiscDeleteConfirmCopy();
     syncWallSheetHandle(document.documentElement.classList.contains("wall-collapsed"));
-    syncSidebarFooterToggle();
     updateExistingPhotosActions?.();
     updateUploadButton?.();
     updateBatchActionBar?.();
@@ -5654,8 +5653,8 @@ function initEditSpinePreview(disc) {
     stage.classList.remove("is-empty");
     if (hint) {
         hint.textContent = editSpinePreview.rect
-            ? "滚轮缩放 · 拖拽平移 · 框来自库内 photo_offset / bbox，对照脊上文字改片名"
-            : "滚轮缩放 · 拖拽平移 · 尚未标定碟脊框（可在详情「重新框选」）";
+            ? tr("edit.previewHintWithBox")
+            : tr("edit.previewNoBox");
     }
 
     img.onload = () => {
@@ -5856,6 +5855,8 @@ function editDisc(discId) {
     }
     editDiscState.discId = discId;
     editDiscState.pendingMovie = null;
+    // 先绑定再显示：任何后续步骤抛错都不会留下一个关不掉的模态。
+    bindEditDiscModal();
     _setEditDiscModalChrome("edit");
     $("#edit-title-cn").value = disc.title_cn || "";
     $("#edit-title-en").value = disc.title_en || "";
@@ -5873,7 +5874,6 @@ function editDisc(discId) {
     _syncEditDiscSearchBtnLabel();
     $("#edit-disc-modal").classList.remove("hidden");
     refreshDynamicUi();
-    bindEditDiscModal();
     populateEditSourceImageSelect(disc.source_image || "").then(() => {
         initEditSpinePreview(disc);
     });
@@ -5884,6 +5884,7 @@ function openCreateDiscModal() {
     if (!requireEditUnlocked()) return;
     editDiscState.discId = null;
     editDiscState.pendingMovie = null;
+    bindEditDiscModal();
     _setEditDiscModalChrome("create");
     $("#edit-title-cn").value = "";
     $("#edit-title-en").value = "";
@@ -5900,7 +5901,6 @@ function openCreateDiscModal() {
     _syncEditDiscSearchBtnLabel();
     $("#edit-disc-modal").classList.remove("hidden");
     refreshDynamicUi();
-    bindEditDiscModal();
     populateEditSourceImageSelect("").then(() => {
         initEditSpinePreview(null);
         const empty = $("#edit-disc-preview-empty");
@@ -5923,13 +5923,14 @@ function closeEditDiscModal() {
 function bindEditDiscModal() {
     if (editDiscState.bound) return;
     editDiscState.bound = true;
-    $("#edit-disc-close").addEventListener("click", closeEditDiscModal);
-    $("#edit-disc-cancel").addEventListener("click", closeEditDiscModal);
-    $("#edit-disc-overlay").addEventListener("click", closeEditDiscModal);
-    $("#edit-disc-save").addEventListener("click", () => saveEditDisc(false));
-    $("#edit-disc-refresh-tmdb").addEventListener("click", () => onEditDiscRefreshTmdb());
-    $("#edit-disc-search-tmdb").addEventListener("click", () => searchEditDiscTmdb());
-    $("#edit-tmdb-id").addEventListener("input", _syncEditDiscSearchBtnLabel);
+    // 关闭三件套用 ?. 兜底：模板缺任一节点也不能让整个绑定中断、把窗口锁死。
+    $("#edit-disc-close")?.addEventListener("click", closeEditDiscModal);
+    $("#edit-disc-cancel")?.addEventListener("click", closeEditDiscModal);
+    $("#edit-disc-overlay")?.addEventListener("click", closeEditDiscModal);
+    $("#edit-disc-save")?.addEventListener("click", () => saveEditDisc(false));
+    $("#edit-disc-refresh-tmdb")?.addEventListener("click", () => onEditDiscRefreshTmdb());
+    $("#edit-disc-search-tmdb")?.addEventListener("click", () => searchEditDiscTmdb());
+    $("#edit-tmdb-id")?.addEventListener("input", _syncEditDiscSearchBtnLabel);
     $("#edit-imdb-id")?.addEventListener("input", _syncEditDiscSearchBtnLabel);
     $("#edit-tvdb-id")?.addEventListener("input", _syncEditDiscSearchBtnLabel);
     $("#edit-source-image")?.addEventListener("change", () => _previewDiscFromSourceSelect());
@@ -5973,7 +5974,7 @@ async function searchEditDiscTmdb() {
     refreshBtn.disabled = true;
     searchBtn.textContent = tr("edit.searching");
     box.classList.remove("hidden");
-    const srcHint = source === "all" ? "全部可用来源" : source.toUpperCase();
+    const srcHint = source === "all" ? tr("edit.sourceAllAvailable") : source.toUpperCase();
     box.innerHTML = `<div class="empty-state">${tr("edit.searchingSource", { source: escapeHtml(srcHint) })}</div>`;
 
     try {
@@ -5991,7 +5992,7 @@ async function searchEditDiscTmdb() {
         const errNotes = metaSearchErrorNotes(data);
         const skipHint = metaSkippedHint(data, source);
         if (!results.length) {
-            const tip = data.message || errNotes || "未找到匹配结果，可改片名/年份或切换类型/来源后再搜";
+            const tip = data.message || errNotes || tr("edit.noMatch");
             const extra = skipHint ? `<div class="empty-state" style="padding-top:0;font-size:12px;opacity:.75">${escapeHtml(skipHint)}</div>` : "";
             box.innerHTML = `<div class="empty-state">${escapeHtml(tip)}</div>${extra}`;
             if (errNotes) showToast(errNotes, "error");
@@ -8097,6 +8098,8 @@ function bindEvents() {
             if (!$("#spine-boxes-modal")?.classList.contains("hidden")) { closeSpineBoxesEditor(); return; }
             if (!$("#manual-modal")?.classList.contains("hidden")) { closeManualModal(); return; }
             if (!$("#solo-placement-modal").classList.contains("hidden")) { closeSoloPlacementEditor(); return; }
+            // 编辑窗多从详情面板打开，须在 closeDetail 之前 return，避免一次 Esc 连关两层
+            if (!$("#edit-disc-modal")?.classList.contains("hidden")) { closeEditDiscModal(); return; }
             if (!$("#detail-panel").classList.contains("hidden")) closeDetail();
             if (!$("#manage-modal").classList.contains("hidden")) closeManageModal();
             if (!$("#match-modal").classList.contains("hidden")) $("#match-modal").classList.add("hidden");
