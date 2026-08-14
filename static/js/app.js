@@ -79,6 +79,7 @@ function uiLocaleTag() {
 }
 function refreshDynamicUi() {
     if (window.MyWallI18n) window.MyWallI18n.applyI18n();
+    refreshDiscDeleteConfirmCopy();
     syncWallSheetHandle(document.documentElement.classList.contains("wall-collapsed"));
     syncSidebarFooterToggle();
     updateExistingPhotosActions?.();
@@ -1679,6 +1680,7 @@ async function showDiscDetail(discId) {
             <div class="detail-actions">
                 <button type="button" class="btn btn-primary" onclick="findDisc(${disc.id})">${DISC_CARD_ICONS.pin}<span>${tr("action.locate")}</span></button>
                 <button type="button" class="btn btn-secondary" onclick="editDisc(${disc.id})">${DISC_CARD_ICONS.pencil}<span>${tr("action.edit")}</span></button>
+                <button type="button" class="btn btn-danger" data-edit-only onclick="deleteDiscWithConfirm(${disc.id})">${DISC_CARD_ICONS.trash}<span>${tr("action.delete")}</span></button>
             </div>`;
 
         $("#detail-panel").classList.remove("hidden");
@@ -5328,7 +5330,7 @@ async function reprocessImage(imageId) {
     }
 }
 
-// ===== 标记识别错误 / 双重确认删除 / 喜好标注 =====
+// ===== 标记识别错误 / 强制确认删除 / 喜好标注 =====
 
 async function setDiscPreference(discId, preference) {
     if (!requireEditUnlocked()) return;
@@ -5388,6 +5390,51 @@ async function toggleDiscFlag(discId) {
     }
 }
 
+const discDeleteConfirmState = {
+    title: "",
+    resolve: null,
+    trigger: null,
+};
+
+function refreshDiscDeleteConfirmCopy() {
+    const modal = $("#delete-disc-modal");
+    if (!modal || modal.classList.contains("hidden") || !discDeleteConfirmState.title) return;
+    $("#delete-disc-message").textContent = tr("confirm.deleteDisc", {
+        title: discDeleteConfirmState.title,
+    });
+}
+
+function closeDiscDeleteConfirm(confirmed = false) {
+    const modal = $("#delete-disc-modal");
+    if (!modal || modal.classList.contains("hidden")) return;
+    modal.classList.add("hidden");
+    const resolve = discDeleteConfirmState.resolve;
+    const trigger = discDeleteConfirmState.trigger;
+    discDeleteConfirmState.title = "";
+    discDeleteConfirmState.resolve = null;
+    discDeleteConfirmState.trigger = null;
+    $("#delete-disc-ack").checked = false;
+    $("#delete-disc-confirm").disabled = true;
+    resolve?.(confirmed);
+    trigger?.focus?.();
+}
+
+function showDiscDeleteConfirm(title) {
+    // 同一时间只允许一个待确认删除；新请求会先取消旧请求，绝不直接删除。
+    closeDiscDeleteConfirm(false);
+    const modal = $("#delete-disc-modal");
+    discDeleteConfirmState.title = title;
+    discDeleteConfirmState.trigger = document.activeElement;
+    $("#delete-disc-ack").checked = false;
+    $("#delete-disc-confirm").disabled = true;
+    modal.classList.remove("hidden");
+    refreshDiscDeleteConfirmCopy();
+    $("#delete-disc-ack").focus();
+    return new Promise(resolve => {
+        discDeleteConfirmState.resolve = resolve;
+    });
+}
+
 async function deleteDiscWithConfirm(discId) {
     if (!requireEditUnlocked()) return;
     const disc = state.discs.find(d => d.id === discId);
@@ -5395,11 +5442,11 @@ async function deleteDiscWithConfirm(discId) {
         showToast(tr("toast.discNotFound"), "error");
         return;
     }
-    const title = disc.title_cn || `#${discId}`;
-    // 第一次确认
-    if (!confirm(tr("confirm.deleteDisc", { title }))) return;
-    // 第二次确认（双重确认，防误删）
-    if (!confirm(tr("confirm.deleteDiscFinal", { title }))) return;
+    const title = discDisplayTitles(disc).primary || `#${discId}`;
+    // 双重明确动作：勾选不可恢复声明，再点击“确认删除”。
+    // Esc、遮罩、取消均只会 resolve(false)，DELETE 只存在于 confirmed 分支。
+    const confirmed = await showDiscDeleteConfirm(title);
+    if (!confirmed) return;
 
     try {
         await api(`/discs/${discId}`, { method: "DELETE" });
@@ -7957,6 +8004,16 @@ function bindEvents() {
     $("#modal-close-manual")?.addEventListener("click", closeManualModal);
     $("#manual-overlay")?.addEventListener("click", closeManualModal);
 
+    $("#delete-disc-ack")?.addEventListener("change", e => {
+        $("#delete-disc-confirm").disabled = !e.target.checked;
+    });
+    $("#delete-disc-cancel")?.addEventListener("click", () => closeDiscDeleteConfirm(false));
+    $("#delete-disc-overlay")?.addEventListener("click", () => closeDiscDeleteConfirm(false));
+    $("#delete-disc-confirm")?.addEventListener("click", () => {
+        if (!$("#delete-disc-ack").checked) return;
+        closeDiscDeleteConfirm(true);
+    });
+
     initGenreCloudLayout();
     $("#btn-genre-cloud")?.addEventListener("click", openGenreCloudModal);
     $("#modal-close-genre-cloud")?.addEventListener("click", closeGenreCloudModal);
@@ -8031,6 +8088,10 @@ function bindEvents() {
     // Escape 键
     document.addEventListener("keydown", e => {
         if (e.key === "Escape") {
+            if (!$("#delete-disc-modal")?.classList.contains("hidden")) {
+                closeDiscDeleteConfirm(false);
+                return;
+            }
             if ($("#ar-zoom-overlay").classList.contains("active")) { closeArZoom(); return; }
             if (!$("#genre-cloud-modal")?.classList.contains("hidden")) { closeGenreCloudModal(); return; }
             if (!$("#spine-boxes-modal")?.classList.contains("hidden")) { closeSpineBoxesEditor(); return; }

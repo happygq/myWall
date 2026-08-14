@@ -41,7 +41,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=5.0j">
+    <link rel="stylesheet" href="/static/css/style.css?v=5.0k">
 </head>
 <body class="readonly">
 
@@ -663,10 +663,31 @@
         </div>
     </div>
 
+    <!-- 碟片删除确认：勾选不可恢复声明后，才允许明确确认删除 -->
+    <div id="delete-disc-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="delete-disc-title" aria-describedby="delete-disc-message">
+        <div class="modal-overlay" id="delete-disc-overlay"></div>
+        <div class="modal-content modal-delete-disc">
+            <div class="modal-header">
+                <h2 id="delete-disc-title" data-i18n="dialog.deleteDisc">Delete disc?</h2>
+            </div>
+            <div class="modal-body">
+                <p id="delete-disc-message" class="delete-disc-message"></p>
+                <label class="delete-disc-ack">
+                    <input type="checkbox" id="delete-disc-ack">
+                    <span data-i18n="confirm.deleteDiscAcknowledge">I understand this cannot be undone.</span>
+                </label>
+                <div class="delete-disc-actions">
+                    <button type="button" class="btn btn-secondary" id="delete-disc-cancel" data-i18n="action.cancel">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="delete-disc-confirm" disabled data-i18n="action.confirmDelete">Confirm delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div id="toast" class="toast hidden"></div>
 
-    <script src="/static/js/i18n.js?v=5.0j"></script>
-    <script src="/static/js/app.js?v=5.0j"></script>
+    <script src="/static/js/i18n.js?v=5.0k"></script>
+    <script src="/static/js/app.js?v=5.0k"></script>
 </body>
 </html>
