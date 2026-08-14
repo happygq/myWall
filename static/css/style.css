@@ -927,18 +927,25 @@ body:not(.readonly) .edit-mode-toggle:focus-visible {
     padding: 0 16px 8px;
 }
 
+/* Two lines: genre + year + cloud button on top, preference full width below.
+   Three equal selects on one 340px sidebar clipped the English labels. */
 .filter-row {
-    display: flex;
-    flex-wrap: nowrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
     gap: 6px;
     align-items: center;
+}
+
+.filter-row #filter-preference {
+    grid-column: 1 / -1;
 }
 
 /* Filters are secondary: same borderless dark pill language as .view-mode-btn,
    no inset ring, so the search box above stays the loudest element. */
 .filter-row select {
-    flex: 1 1 0;
+    width: 100%;
     min-width: 0;
+    text-overflow: ellipsis;
     background: var(--bg-mid);
     color: var(--text-silver);
     border: none;

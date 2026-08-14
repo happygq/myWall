@@ -51,7 +51,7 @@
         const normalized = normalizeLang(lang, DEFAULT_UI_LANG);
         if (dictionaries.has(normalized)) return dictionaries.get(normalized);
 
-        const response = await global.fetch(`/static/locales/${normalized}.json?v=5.0n`);
+        const response = await global.fetch(`/static/locales/${normalized}.json?v=5.0o`);
         if (!response.ok) {
             throw new Error(`Unable to load locale "${normalized}" (${response.status})`);
         }
@@ -74,11 +74,27 @@
         return interpolate(active[key] ?? english[key] ?? key, params);
     }
 
+    /** Parse data-i18n-params="count:12,foo:bar" into { count: "12", foo: "bar" }. */
+    function parseI18nParams(raw) {
+        const text = String(raw || "").trim();
+        if (!text) return {};
+        const params = {};
+        text.split(",").forEach((part) => {
+            const idx = part.indexOf(":");
+            if (idx <= 0) return;
+            const name = part.slice(0, idx).trim();
+            const value = part.slice(idx + 1).trim();
+            if (name) params[name] = value;
+        });
+        return params;
+    }
+
     function applyI18n(root) {
         const scope = root || global.document;
         const docEl = global.document.documentElement;
         scope.querySelectorAll("[data-i18n]").forEach((element) => {
-            element.textContent = t(element.dataset.i18n);
+            const params = parseI18nParams(element.dataset.i18nParams);
+            element.textContent = t(element.dataset.i18n, params);
         });
         scope.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
             element.setAttribute("placeholder", t(element.dataset.i18nPlaceholder));

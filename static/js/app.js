@@ -87,6 +87,10 @@ function refreshDynamicUi() {
     updateSelectAllButton?.();
     _setEditDiscModalChrome(editDiscState.mode || "edit");
     if (isSidebarFooterOpen()) openSidebarFooter({ pin: !!$("#sidebar-footer")?.dataset.pinned }); else closeSidebarFooter();
+    // Manage Images 网格用 tr() 渲染；切语言后需重拉，避免空态/文案残留
+    if ($("#manage-modal") && !$("#manage-modal").classList.contains("hidden")) {
+        loadManageImages().catch(() => { /* ignore */ });
+    }
 }
 
 
@@ -5035,16 +5039,24 @@ function closeManageModal() {
     state.manageSelected = {};
 }
 
+function setManageStatCount(count) {
+    const el = $("#manage-stat");
+    if (!el) return;
+    el.dataset.i18nParams = `count:${Number(count) || 0}`;
+    el.textContent = tr("status.imageCount", { count: Number(count) || 0 });
+}
+
 async function loadManageImages() {
     const data = await api("/images");
     const grid = $("#image-grid");
-    if (data.images.length === 0) {
+    const images = Array.isArray(data?.images) ? data.images : [];
+    if (images.length === 0) {
         grid.innerHTML = `<div class="empty-state">${tr("status.noImages")}</div>`;
-        $("#manage-stat").textContent = tr("status.imageCount", { count: 0 });
+        setManageStatCount(0);
         return;
     }
-    $("#manage-stat").textContent = tr("status.imageCount", { count: data.images.length });
-    grid.innerHTML = data.images.map(img => {
+    setManageStatCount(images.length);
+    grid.innerHTML = images.map(img => {
         const isChecked = state.manageSelected[img.id] ? "checked" : "";
         const selClass = state.manageSelected[img.id] ? "selected" : "";
         const label = escapeHtml(img.display_name || img.original_filename || img.filename || "");
@@ -5132,7 +5144,10 @@ function updateBatchActionBar() {
 
     if (count > 0) {
         bar.classList.remove("hidden");
-        label.textContent = tr("status.batchSelected", { count });
+        if (label) {
+            label.dataset.i18nParams = `count:${count}`;
+            label.textContent = tr("status.batchSelected", { count });
+        }
         setBtnLabel(reprocessBtn, tr("images.batchReprocessCount", { count }));
         setBtnLabel(deleteBtn, tr("images.batchDeleteCount", { count }));
     } else {

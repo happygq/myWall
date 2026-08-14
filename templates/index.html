@@ -41,7 +41,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=5.0n">
+    <link rel="stylesheet" href="/static/css/style.css?v=5.0o">
 </head>
 <body class="readonly">
 
@@ -122,13 +122,6 @@
             <div class="filter-row">
                 <select id="filter-genre"><option value="" data-i18n="filter.allGenres">All genres</option></select>
                 <select id="filter-year"><option value="" data-i18n="filter.allYears">All years</option></select>
-                <select id="filter-preference" title="Filter by preference">
-                    <option value="" data-i18n="filter.preference">All preferences</option>
-                    <option value="1" data-i18n="filter.preference.green">Preference · Green</option>
-                    <option value="2" data-i18n="filter.preference.blue">Preference · Blue</option>
-                    <option value="3" data-i18n="filter.preference.orange">Preference · Orange</option>
-                    <option value="0" data-i18n="filter.preference.none">Not marked</option>
-                </select>
                 <button type="button" class="sidebar-icon-btn" id="btn-genre-cloud" title="Genre cloud" aria-label="Genre cloud" data-i18n-title="filter.hotWords" data-i18n-aria-label="filter.hotWords" aria-haspopup="dialog" aria-controls="genre-cloud-modal" aria-expanded="false">
                     <svg class="sidebar-icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <rect x="2.6" y="5" width="11.2" height="7.6" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/>
@@ -137,6 +130,13 @@
                         <circle cx="8.2" cy="17.8" r="2.4" fill="none" stroke="currentColor" stroke-width="1.75"/>
                     </svg>
                 </button>
+                <select id="filter-preference" title="Filter by preference">
+                    <option value="" data-i18n="filter.preference">All preferences</option>
+                    <option value="1" data-i18n="filter.preference.green">Preference · Green</option>
+                    <option value="2" data-i18n="filter.preference.blue">Preference · Blue</option>
+                    <option value="3" data-i18n="filter.preference.orange">Preference · Orange</option>
+                    <option value="0" data-i18n="filter.preference.none">Not marked</option>
+                </select>
             </div>
         </div>
 
@@ -687,7 +687,7 @@
     <!-- Toast -->
     <div id="toast" class="toast hidden"></div>
 
-    <script src="/static/js/i18n.js?v=5.0n"></script>
-    <script src="/static/js/app.js?v=5.0n"></script>
+    <script src="/static/js/i18n.js?v=5.0o"></script>
+    <script src="/static/js/app.js?v=5.0o"></script>
 </body>
 </html>
