@@ -1906,11 +1906,13 @@ html.is-narrow #genre-cloud-modal {
     background: rgba(0, 0, 0, 0.55);
     border: none;
     color: var(--text-base);
-    width: 32px;
-    height: 32px;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    line-height: 16px;
     border-radius: 50%;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
