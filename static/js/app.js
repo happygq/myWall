@@ -1156,10 +1156,10 @@ function initLanguageSelector() {
     if (!control || !trigger || !options.length || !window.MyWallI18n) return;
 
     const languages = {
-        en: { flag: "🇺🇸", label: "English" },
-        zh: { flag: "🇨🇳", label: "简体中文" },
-        ja: { flag: "🇯🇵", label: "日本語" },
-        ko: { flag: "🇰🇷", label: "한국어" },
+        en: { flag: "/static/img/flags/us.svg", label: "English" },
+        zh: { flag: "/static/img/flags/cn.svg", label: "简体中文" },
+        ja: { flag: "/static/img/flags/jp.svg", label: "日本語" },
+        ko: { flag: "/static/img/flags/kr.svg", label: "한국어" },
     };
 
     const setOpen = (open, suppressHover = false) => {
@@ -1171,7 +1171,7 @@ function initLanguageSelector() {
     const syncLanguageControl = (lang) => {
         const language = languages[lang] || languages.en;
         const flag = trigger.querySelector(".language-flag");
-        if (flag) flag.textContent = language.flag;
+        if (flag) flag.src = language.flag;
         trigger.setAttribute("aria-label", language.label);
         trigger.setAttribute("title", language.label);
         options.forEach(option => {
