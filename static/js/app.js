@@ -14,6 +14,21 @@
  * v3.14o：碟片卡片 info 解锁高度；英文最多 2 行、中文 1 行 ellipsis；年份/评分/心形下移
  * v3.14p：海报顶对齐英文、底齐心形；收紧行距；心形与年份同行
  * v3.14q：海报固定 48×72（信息区 4 行槽），不足 4 行仍同高、文字顶齐
+ * v3.14r：类型筛选下拉中文归一（别名合并，不改库）
+ * v3.14s：类型下拉+筛选查询别名 OR（Music/音乐、Documentary/纪录）；不改库内 genres
+ * v3.14t：类型热词图（按碟数加权，点击筛选）
+ * v3.14u：筛选三下拉同一排；词云图标；热词图兼容无 genre_counts 的旧 /api/filters
+ * v3.14z：类型热词无内部滚动；hover 仅显示碟数（无框）
+ * v3.15c：热词图停在墙面主区（不挡侧栏）；点词筛选不关图；词轻微物理晃动；hover 无原生 title；墙面虚化
+ * v3.15e：热词弹窗改称「热词筛选」；去掉说明文字
+ * v3.15f：热词装箱后整体放大铺满窗口（少留边，无内部滚动）
+ * v3.15g：热词窗固定尺寸停在主区中部，不随侧栏 --drag-x 挤压；拖结束重装箱
+ * v3.15h：热词字号全库加权+封顶留白；窗贴侧栏右缘跟随；手机隐藏入口；悬停数字跟光标
+ * v3.15i：热词字号差拉大（min 9 / 短边 30–32%）；悬停数字 26px；面板半透明
+ * v3.15k：热词缩放后不低于 12px；铺不满则留白，不再把最小词压到 7px
+ * v3.15l：热词铺满后按 base 非均匀映射：最大词仍铺满，最小词约为原先一半
+ * v3.15o：回退热词图到 3.15l（大面板+标题栏+装箱后非均匀字号）；撤销 3.15m/n
+ * v3.15p：热词先定显示字号再密铺（恢复 3.15m 装箱）；保留大面板与标题栏
  * 墙面坐标：首页与 placement 编辑共用 wall-coord-layer，百分比相对墙图自然尺寸
  * 素材策略：test3≈test10 只跑一份；墙面只用 test-wall.jpg；识别 test1–13 跳过重复与已完成的 test2
  */
@@ -21,7 +36,8 @@
 // ===== 全局状态 =====
 const state = {
     discs: [],
-    filters: { genres: [], years: [] },
+    filters: { genres: [], years: [], genre_counts: [] },
+    libraryGenreCounts: [],
     selectedDiscId: null,
     highlightedDiscId: null,
     wallImageUrl: "",
@@ -581,6 +597,137 @@ function debounce(fn, delay) {
     };
 }
 
+// 与 genre_normalize.py GENRE_GROUPS 保持同步：只用于下拉/筛选/展示，不改库内原始 genres
+const GENRE_GROUPS = [
+    ["剧情", ["剧情", "Drama"]],
+    ["喜剧", ["喜剧", "Comedy"]],
+    ["动作", ["动作", "Action", "动作冒险", "Action & Adventure", "Action Adventure"]],
+    ["冒险", ["冒险", "Adventure", "动作冒险", "Action & Adventure", "Action Adventure"]],
+    ["动画", ["动画", "Animation"]],
+    ["纪录", ["纪录", "纪录片", "Documentary"]],
+    ["音乐", ["音乐", "Music", "Musical", "音乐剧"]],
+    ["科幻", ["科幻", "Science Fiction", "Sci-Fi", "Sci Fi", "Sci-Fi & Fantasy", "Science Fiction & Fantasy"]],
+    ["奇幻", ["奇幻", "Fantasy", "Sci-Fi & Fantasy", "Science Fiction & Fantasy"]],
+    ["恐怖", ["恐怖", "Horror"]],
+    ["惊悚", ["惊悚", "Thriller"]],
+    ["悬疑", ["悬疑", "Mystery"]],
+    ["爱情", ["爱情", "Romance"]],
+    ["犯罪", ["犯罪", "Crime"]],
+    ["战争", ["战争", "War", "War & Politics", "War and Politics"]],
+    ["历史", ["历史", "History"]],
+    ["家庭", ["家庭", "Family"]],
+    ["西部", ["西部", "Western"]],
+    ["新闻", ["新闻", "News"]],
+    ["电视电影", ["电视电影", "TV Movie", "TVMovie"]],
+    ["真人秀", ["真人秀", "Reality", "Reality-TV", "Reality TV"]],
+    ["儿童", ["儿童", "Kids", "Children"]],
+];
+const GENRE_CANONICAL_ORDER = GENRE_GROUPS.map(([key]) => key);
+
+function normGenre(value) {
+    return String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/&/g, " and ")
+        .replace(/[_\-]+/g, " ")
+        .replace(/\s+/g, " ");
+}
+
+const GENRE_ALIAS_TO_KEYS = (() => {
+    const index = {};
+    for (const [key, aliases] of GENRE_GROUPS) {
+        for (const alias of [key, ...aliases]) {
+            const nk = normGenre(alias);
+            if (!nk) continue;
+            const bucket = index[nk] || (index[nk] = []);
+            if (!bucket.includes(key)) bucket.push(key);
+        }
+    }
+    return index;
+})();
+
+function canonicalKeysOf(raw) {
+    const nk = normGenre(raw);
+    if (!nk) return [];
+    if (GENRE_ALIAS_TO_KEYS[nk]) return GENRE_ALIAS_TO_KEYS[nk].slice();
+    const found = [];
+    const padded = ` ${nk} `;
+    for (const [aliasN, keys] of Object.entries(GENRE_ALIAS_TO_KEYS)) {
+        if (padded.includes(` ${aliasN} `)) {
+            for (const key of keys) if (!found.includes(key)) found.push(key);
+        }
+    }
+    return found;
+}
+
+function displayGenres(rawList) {
+    const extras = [];
+    const seen = new Set();
+    for (const item of rawList || []) {
+        const text = String(item ?? "").trim();
+        if (!text) continue;
+        const keys = canonicalKeysOf(text);
+        if (keys.length) keys.forEach(k => seen.add(k));
+        else if (!extras.includes(text)) extras.push(text);
+    }
+    return GENRE_CANONICAL_ORDER.filter(k => seen.has(k)).concat(extras);
+}
+
+function orderedGenreLabels(labels) {
+    const present = new Set(
+        [...(labels || [])].map(x => String(x).trim()).filter(Boolean)
+    );
+    const known = GENRE_CANONICAL_ORDER.filter(k => present.has(k));
+    const rest = [...present].filter(k => !known.includes(k)).sort();
+    return known.concat(rest);
+}
+
+function discMatchesGenre(disc, filterValue) {
+    const needle = String(filterValue || "").trim();
+    if (!needle) return true;
+    const targetKeys = new Set(canonicalKeysOf(needle));
+    const needleN = normGenre(needle);
+    const pools = [disc?.genres, disc?.genres_cn];
+    for (const rawList of pools) {
+        for (const item of rawList || []) {
+            const text = String(item ?? "").trim();
+            if (!text) continue;
+            const keys = canonicalKeysOf(text);
+            if (targetKeys.size) {
+                if (keys.some(k => targetKeys.has(k))) return true;
+            } else if (keys.includes(needle) || normGenre(text) === needleN || text === needle) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function populateGenreFilter(rawLabels) {
+    const genreEl = $("#filter-genre");
+    if (!genreEl) return;
+    const prev = genreEl.value;
+    const collected = [];
+    for (const g of rawLabels || state.filters?.genres || []) collected.push(g);
+    const mapped = [];
+    for (const g of collected) mapped.push(...displayGenres([g]));
+    const options = orderedGenreLabels(mapped);
+    genreEl.innerHTML = '<option value="">全部类型</option>' +
+        options.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
+    const canonicalPrev = (canonicalKeysOf(prev)[0] || prev);
+    if (canonicalPrev && [...genreEl.options].some(o => o.value === canonicalPrev)) {
+        genreEl.value = canonicalPrev;
+    } else if (prev && [...genreEl.options].some(o => o.value === prev)) {
+        genreEl.value = prev;
+    }
+}
+
+function genreLabels(disc) {
+    if (Array.isArray(disc?.genres) && disc.genres.length) return displayGenres(disc.genres);
+    if (Array.isArray(disc?.genres_cn) && disc.genres_cn.length) return displayGenres(disc.genres_cn);
+    return [];
+}
+
 function getGenreClass(genres) {
     if (!genres || genres.length === 0) return "genre-default";
     const g = genres[0].toLowerCase();
@@ -784,6 +931,7 @@ function syncNarrowLayout() {
         root.style.removeProperty("--vv-top");
         applyEditMode(readStoredEditUnlocked());
         syncWallSheetHandle(false);
+        syncGenreCloudEntry();
         return;
     }
     forceDeviceViewportMeta();
@@ -797,6 +945,7 @@ function syncNarrowLayout() {
     root.style.setProperty("--vv-top", "0px");
     applyWallCollapsed(readStoredWallCollapsed());
     applyEditMode(false);
+    syncGenreCloudEntry();
 }
 
 function initNarrowLayout() {
@@ -988,12 +1137,37 @@ async function loadWallImage() {
 async function loadDiscs(keyword = "", genre = "", year = "", preference = "") {
     const params = new URLSearchParams();
     if (keyword) params.set("keyword", keyword);
-    if (genre) params.set("genre", genre);
     if (year) params.set("year", year);
     if (preference !== "" && preference != null) params.set("preference", preference);
+    // 类型：同时打后端 ?genre=（新进程别名 OR）+ 本地别名 OR。
+    // 若旧进程按 JSON LIKE 漏了英文别名，再拉一页未带 genre 的结果补齐。
+    if (genre) params.set("genre", genre);
     const data = await api(`/discs?${params.toString()}`);
-    state.discs = data.discs;
+    let discs = data.discs || [];
+    if (genre) {
+        discs = discs.filter(d => discMatchesGenre(d, genre));
+        const needAliasBackfill = canonicalKeysOf(genre).length > 0;
+        if (needAliasBackfill) {
+            const rawParams = new URLSearchParams();
+            if (keyword) rawParams.set("keyword", keyword);
+            if (year) rawParams.set("year", year);
+            if (preference !== "" && preference != null) rawParams.set("preference", preference);
+            const rawData = await api(`/discs?${rawParams.toString()}`);
+            const seen = new Set(discs.map(d => d.id));
+            for (const d of rawData.discs || []) {
+                if (!seen.has(d.id) && discMatchesGenre(d, genre)) {
+                    discs.push(d);
+                    seen.add(d.id);
+                }
+            }
+        }
+    }
+    state.discs = discs;
     if (state.viewMode === "tree") await loadImageUrlMap();
+    populateGenreFilter(state.filters?.genres);
+    if (state.filters) {
+        state.filters.genre_counts = resolveGenreCounts(state.filters);
+    }
     renderDiscMarkers();
     renderDiscList();
     $("#stat-count").textContent = state.discs.length;
@@ -1001,11 +1175,23 @@ async function loadDiscs(keyword = "", genre = "", year = "", preference = "") {
 
 async function loadFilters() {
     const data = await api("/filters");
-    state.filters = data;
-    $("#filter-genre").innerHTML = '<option value="">全部类型</option>' +
-        data.genres.map(g => `<option value="${g}">${g}</option>`).join("");
-    $("#filter-year").innerHTML = '<option value="">全部年份</option>' +
-        data.years.map(y => `<option value="${y}">${y}</option>`).join("");
+    const genre_counts = resolveGenreCounts(data);
+    state.filters = {
+        ...data,
+        genres: Array.isArray(data.genres) ? data.genres : genre_counts.map(x => x.label),
+        years: data.years || [],
+        genre_counts,
+    };
+    const yearEl = $("#filter-year");
+    const prevYear = yearEl ? yearEl.value : "";
+    populateGenreFilter(data.genres);
+    if (yearEl) {
+        yearEl.innerHTML = '<option value="">全部年份</option>' +
+            (data.years || []).map(y => `<option value="${escapeHtml(y)}">${escapeHtml(y)}</option>`).join("");
+        if (prevYear && [...yearEl.options].some(o => o.value === prevYear)) {
+            yearEl.value = prevYear;
+        }
+    }
 }
 
 async function loadStats() {
@@ -1026,7 +1212,7 @@ function renderDiscMarkers() {
 
     const m = document.createElement("div");
     const flagged = !!disc.flagged;
-    m.className = `disc-marker ${getGenreClass(disc.genres)}${flagged ? " flagged" : ""} highlighted`;
+    m.className = `disc-marker ${getGenreClass(genreLabels(disc))}${flagged ? " flagged" : ""} highlighted`;
     m.style.left = `${disc.pos_x}%`;
     m.style.top = `${disc.pos_y}%`;
     m.dataset.discId = disc.id;
@@ -1276,7 +1462,7 @@ async function showDiscDetail(discId) {
                 ${c.profile_url ? `<img class="detail-person-avatar" src="${c.profile_url}" alt="" loading="lazy">` : ""}
                 <div><div class="detail-person-name">${escapeHtml(c.name)}</div><div class="detail-person-role">${c.character ? `饰 ${escapeHtml(c.character)}` : "演员"}</div></div>
             </div>`).join("") || '<span style="color:var(--text-muted)">暂无</span>';
-        const genreHtml = (disc.genres || []).map(g => `<span class="detail-genre">${g}</span>`).join("");
+        const genreHtml = genreLabels(disc).map(g => `<span class="detail-genre">${escapeHtml(g)}</span>`).join("");
 
         // AR 叠加层：在原照片中高亮碟片位置
         let arSectionHtml = "";
@@ -1367,7 +1553,7 @@ function closeDetail() {
 
 // ===== 使用手册 =====
 
-const MANUAL_SRC = "/static/docs/manual.html?v=3.14o";
+const MANUAL_SRC = "/static/docs/manual.html?v=3.15p";
 
 function openManualModal() {
     const modal = $("#manual-modal");
@@ -1449,6 +1635,835 @@ async function doSearch() {
         $("#filter-year").value,
         $("#filter-preference")?.value || ""
     );
+    syncGenreCloudActive();
+}
+
+// ===== 类型热词图 =====
+
+function parseGenreCountList(raw) {
+    if (!raw) return [];
+    if (Array.isArray(raw)) {
+        return raw.map(item => {
+            if (item == null) return null;
+            if (typeof item === "string" || typeof item === "number") {
+                const label = String(item).trim();
+                return label ? { label, count: 1 } : null;
+            }
+            const label = String(item.label || item.name || item.genre || item.key || "").trim();
+            const count = Number(item.count ?? item.n ?? item.value ?? item.total ?? 0);
+            if (!label) return null;
+            return { label, count: count > 0 ? count : 0 };
+        }).filter(Boolean);
+    }
+    if (typeof raw === "object") {
+        return Object.entries(raw).map(([label, v]) => {
+            const count = (v && typeof v === "object")
+                ? Number(v.count ?? v.n ?? v.value ?? 0)
+                : Number(v);
+            return { label: String(label).trim(), count: count > 0 ? count : 0 };
+        }).filter(item => item.label);
+    }
+    return [];
+}
+
+function tallyGenreCountsFromDiscs(discs) {
+    const counts = {};
+    for (const d of discs || []) {
+        for (const g of genreLabels(d)) {
+            if (g) counts[g] = (counts[g] || 0) + 1;
+        }
+    }
+    return Object.entries(counts).map(([label, count]) => ({ label, count }));
+}
+
+function genreCountsWeight(items) {
+    return (items || []).reduce((sum, x) => sum + (Number(x.count) || 0), 0);
+}
+
+function rememberLibraryGenreCounts(items) {
+    if (!items?.length) return;
+    const prev = state.libraryGenreCounts || [];
+    if (!prev.length || genreCountsWeight(items) > genreCountsWeight(prev) || items.length > prev.length) {
+        state.libraryGenreCounts = items;
+    }
+}
+
+function resolveGenreCounts(data) {
+    const fromApi = parseGenreCountList(data?.genre_counts).filter(x => x.label && x.count > 0);
+    const apiLooksReal = fromApi.some(x => x.count > 1);
+    if (apiLooksReal) {
+        rememberLibraryGenreCounts(fromApi);
+        return fromApi;
+    }
+    const cached = state.libraryGenreCounts || [];
+    if (cached.some(x => Number(x.count) > 1)) return cached;
+    const fromDiscs = tallyGenreCountsFromDiscs(state.discs).filter(x => x.label && x.count > 0);
+    if (fromDiscs.length) {
+        rememberLibraryGenreCounts(fromDiscs);
+        return fromDiscs;
+    }
+    if (fromApi.length) {
+        rememberLibraryGenreCounts(fromApi);
+        return fromApi;
+    }
+    if (cached.length) return cached;
+    const fromLabels = (data?.genres || state.filters?.genres || [])
+        .map(g => ({ label: String(g || "").trim(), count: 1 }))
+        .filter(x => x.label);
+    rememberLibraryGenreCounts(fromLabels);
+    return fromLabels;
+}
+
+const GENRE_CLOUD_GAP = 1;
+const GENRE_CLOUD_HOVER_PAD = 18;
+const GENRE_CLOUD_PAD_X = 8;
+const GENRE_CLOUD_PAD_BOTTOM = 8;
+const GENRE_CLOUD_FILL_MARGIN = 6;
+const GENRE_CLOUD_MAX_DISP = 4.6;
+const GENRE_CLOUD_MAX_SPEED = 16;
+const GENRE_CLOUD_PANEL_W = 640;
+const GENRE_CLOUD_SIDEBAR_GAP = 12;
+const GENRE_CLOUD_SIZE_MIN = 12;
+const GENRE_CLOUD_MIN_FILL_FACTOR = 0.5;
+const GENRE_CLOUD_MAX_RATIO = 0.30;
+const GENRE_CLOUD_MAX_RATIO_HARD = 0.32;
+const GENRE_CLOUD_TIP_OX = 14;
+const GENRE_CLOUD_TIP_OY = 14;
+let genreCloudPackedWidth = -1;
+let genreCloudMotionRaf = 0;
+let genreCloudBodies = [];
+let genreCloudMotionLast = 0;
+
+function prefersReducedMotion() {
+    try {
+        return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch (e) {
+        return false;
+    }
+}
+
+function isNarrowLayout() {
+    return document.documentElement.classList.contains("is-narrow")
+        || window.matchMedia("(pointer: coarse), (max-width: 899.98px)").matches;
+}
+
+function isGenreCloudUnavailable() {
+    return isNarrowBrowse() || isNarrowLayout();
+}
+
+function syncGenreCloudEntry() {
+    const btn = $("#btn-genre-cloud");
+    const off = isGenreCloudUnavailable();
+    if (btn) {
+        btn.hidden = off;
+        btn.classList.toggle("hidden", off);
+        btn.setAttribute("aria-hidden", off ? "true" : "false");
+        if (off) btn.setAttribute("aria-expanded", "false");
+    }
+    const modal = $("#genre-cloud-modal");
+    if (off && modal && !modal.classList.contains("hidden")) closeGenreCloudModal();
+}
+
+function genreCloudFillTarget(n) {
+    if (n >= 12) return 0.90;
+    if (n >= 6) return 0.60;
+    return 0.40;
+}
+
+function genreCloudPanelBox() {
+    const panel = $(".modal-genre-cloud");
+    const w = Math.max(1, panel?.offsetWidth || GENRE_CLOUD_PANEL_W);
+    const cssMax = Math.min((window.innerHeight || 800) * 0.88, 860);
+    const h = Math.max(1, panel?.offsetHeight || cssMax);
+    return { w, h, short: Math.min(w, h) };
+}
+
+function genreCloudRelT(count, minCount, maxCount) {
+    const c = Math.max(1, Number(count) || 1);
+    const lo = Math.max(1, Number(minCount) || 1);
+    const hi = Math.max(lo, Number(maxCount) || lo);
+    const sqrtLo = Math.sqrt(lo);
+    const sqrtHi = Math.sqrt(hi);
+    const sqrtT = sqrtHi <= sqrtLo ? 1 : (Math.sqrt(c) - sqrtLo) / (sqrtHi - sqrtLo);
+    const logLo = Math.log(lo + 1);
+    const logHi = Math.log(hi + 1);
+    const logT = logHi <= logLo ? 1 : (Math.log(c + 1) - logLo) / (logHi - logLo);
+    const t = (sqrtT + logT) / 2;
+    return Math.pow(Math.max(0, Math.min(1, t)), 1.25);
+}
+
+function libraryCountsForCloud() {
+    const cached = (state.libraryGenreCounts || []).filter(x => x.label && x.count > 0);
+    if (cached.length) return cached;
+    return resolveGenreCounts(state.filters || {}).filter(x => x.label && x.count > 0);
+}
+
+function resetGenreCloudBox(root) {
+    if (!root) return;
+    root.style.height = "";
+    root.style.transform = "";
+    root.style.marginBottom = "";
+}
+
+function genreCloudMaxHeight() {
+    const layer = $("#genre-cloud-modal");
+    const modal = $(".modal-genre-cloud");
+    const header = modal?.querySelector(".modal-header");
+    const body = modal?.querySelector(".genre-cloud-body");
+    const vh = window.innerHeight || 800;
+    const layerH = layer && !layer.classList.contains("hidden") ? layer.clientHeight : 0;
+    const maxModal = Math.min(layerH || vh * 0.88, vh * 0.88, 860);
+    const bodyPad = body
+        ? (parseFloat(getComputedStyle(body).paddingTop) || 0)
+            + (parseFloat(getComputedStyle(body).paddingBottom) || 0)
+        : 32;
+    const chrome = (header?.offsetHeight || 52) + bodyPad;
+    return Math.max(140, Math.floor(maxModal - chrome - 8));
+}
+
+function genreCloudStyle(count, minCount, maxCount, sizeMin, sizeMax) {
+    const t = genreCloudRelT(count, minCount, maxCount);
+    const lo = sizeMin ?? GENRE_CLOUD_SIZE_MIN;
+    const hi = Math.max(lo + 6, sizeMax ?? 72);
+    const size = Math.round(lo + t * (hi - lo));
+    const weight = t > 0.72 ? 700 : t > 0.38 ? 600 : 400;
+    const color = t > 0.7 ? "#fdfdfd" : t > 0.42 ? "#b3b3b3" : t > 0.18 ? "#7a7a7a" : "#5c5c5c";
+    const rank = t > 0.55 ? "lg" : t > 0.28 ? "md" : "sm";
+    return { size, weight, color, rank };
+}
+
+function genreCloudCanVertical(label) {
+    const chars = [...String(label || "")];
+    if (chars.length < 2 || chars.length > 6) return false;
+    let han = 0;
+    for (const ch of chars) {
+        const c = ch.codePointAt(0);
+        if ((c >= 0x4e00 && c <= 0x9fff) || (c >= 0x3400 && c <= 0x4dbf)) han += 1;
+    }
+    return han >= chars.length - 1;
+}
+
+function genreCloudOverlaps(x, y, w, h, boxes, gap) {
+    const r = x + w + gap;
+    const b = y + h + gap;
+    for (let i = 0; i < boxes.length; i++) {
+        const p = boxes[i];
+        if (x < p.x + p.w + gap && r > p.x && y < p.y + p.h + gap && b > p.y) return true;
+    }
+    return false;
+}
+
+function genreCloudUnionWidth(boxes, x, w) {
+    let minX = x;
+    let maxX = x + w;
+    for (let i = 0; i < boxes.length; i++) {
+        const p = boxes[i];
+        if (p.x < minX) minX = p.x;
+        const right = p.x + p.w;
+        if (right > maxX) maxX = right;
+    }
+    return maxX - minX;
+}
+
+function genreCloudBBoxArea(boxes, extra) {
+    let minX = extra.x;
+    let minY = extra.y;
+    let maxX = extra.x + extra.w;
+    let maxY = extra.y + extra.h;
+    for (let i = 0; i < boxes.length; i++) {
+        const p = boxes[i];
+        if (p.x < minX) minX = p.x;
+        if (p.y < minY) minY = p.y;
+        const r = p.x + p.w;
+        const b = p.y + p.h;
+        if (r > maxX) maxX = r;
+        if (b > maxY) maxY = b;
+    }
+    return (maxX - minX) * (maxY - minY);
+}
+
+function genreCloudAligns(hostLen, wordLen) {
+    const extra = hostLen - wordLen;
+    if (Math.abs(extra) < 0.5) return [0];
+    return [0, extra / 2, extra];
+}
+
+function genreCloudEdgeCandidates(item, placed, gap) {
+    const variants = [{ vertical: false, w: item.hw, h: item.hh }];
+    if (item.canV) variants.push({ vertical: true, w: item.vw, h: item.vh });
+    const xSnaps = [];
+    const ySnaps = [];
+    for (let i = 0; i < placed.length; i++) {
+        const p = placed[i];
+        xSnaps.push(p.x, p.x + p.w);
+        ySnaps.push(p.y, p.y + p.h);
+    }
+    const out = [];
+    for (let i = 0; i < placed.length; i++) {
+        const p = placed[i];
+        for (let v = 0; v < variants.length; v++) {
+            const or = variants[v];
+            const ys = new Set(genreCloudAligns(p.h, or.h).map(d => p.y + d));
+            for (let s = 0; s < ySnaps.length; s++) {
+                ys.add(ySnaps[s]);
+                ys.add(ySnaps[s] - or.h);
+            }
+            const xs = new Set(genreCloudAligns(p.w, or.w).map(d => p.x + d));
+            for (let s = 0; s < xSnaps.length; s++) {
+                xs.add(xSnaps[s]);
+                xs.add(xSnaps[s] - or.w);
+            }
+            const yPad = Math.max(p.h, or.h) + 12;
+            const xPad = Math.max(p.w, or.w) + 12;
+            ys.forEach(y => {
+                if (y + or.h < p.y - yPad || y > p.y + p.h + yPad) return;
+                out.push({ ...or, x: p.x + p.w + gap, y });
+                out.push({ ...or, x: p.x - or.w - gap, y });
+            });
+            xs.forEach(x => {
+                if (x + or.w < p.x - xPad || x > p.x + p.w + xPad) return;
+                out.push({ ...or, x, y: p.y + p.h + gap });
+                out.push({ ...or, x, y: p.y - or.h - gap });
+            });
+        }
+    }
+    return out;
+}
+
+function genreCloudSpiralSlot(w, h, placed, maxW, gap) {
+    const cx = -w / 2;
+    const cy = -h / 2;
+    const ok = (x, y) => !genreCloudOverlaps(x, y, w, h, placed, gap) && genreCloudUnionWidth(placed, x, w) <= maxW;
+    if (ok(cx, cy)) return { x: cx, y: cy };
+    const step = 2;
+    const maxR = Math.max(maxW * 5, 900);
+    for (let r = step; r <= maxR; r += step) {
+        const n = Math.max(16, Math.ceil((Math.PI * 2 * r) / step));
+        for (let i = 0; i < n; i++) {
+            const a = (i / n) * Math.PI * 2;
+            const x = Math.cos(a) * r + cx;
+            const y = Math.sin(a) * r + cy;
+            if (ok(x, y)) return { x, y };
+        }
+    }
+    let maxY = 0;
+    for (let i = 0; i < placed.length; i++) {
+        const b = placed[i].y + placed[i].h;
+        if (b > maxY) maxY = b;
+    }
+    return { x: cx, y: maxY + gap };
+}
+
+function genreCloudPickSlot(item, placed, maxW, gap, vCount, hCount) {
+    const wantV = item.canV && vCount < hCount * 0.55;
+    let best = null;
+    let bestScore = Infinity;
+    const cands = genreCloudEdgeCandidates(item, placed, gap);
+    for (let i = 0; i < cands.length; i++) {
+        const c = cands[i];
+        const x = Math.round(c.x);
+        const y = Math.round(c.y);
+        if (genreCloudOverlaps(x, y, c.w, c.h, placed, gap)) continue;
+        if (genreCloudUnionWidth(placed, x, c.w) > maxW) continue;
+        const dx = x + c.w / 2;
+        const dy = y + c.h / 2;
+        let score = dx * dx + dy * dy + genreCloudBBoxArea(placed, { x, y, w: c.w, h: c.h }) * 0.06;
+        if (c.vertical && wantV) score *= 0.88;
+        else if (!c.vertical && !wantV) score *= 0.96;
+        if (score < bestScore) {
+            bestScore = score;
+            best = { x, y, w: c.w, h: c.h, vertical: c.vertical };
+        }
+    }
+    if (best) return best;
+    const variants = [{ vertical: false, w: item.hw, h: item.hh }];
+    if (item.canV) variants.push({ vertical: true, w: item.vw, h: item.vh });
+    let fallback = null;
+    let fallbackScore = Infinity;
+    for (let v = 0; v < variants.length; v++) {
+        const or = variants[v];
+        const slot = genreCloudSpiralSlot(or.w, or.h, placed, maxW, gap);
+        const dx = slot.x + or.w / 2;
+        const dy = slot.y + or.h / 2;
+        const score = dx * dx + dy * dy;
+        if (score < fallbackScore) {
+            fallbackScore = score;
+            fallback = { x: Math.round(slot.x), y: Math.round(slot.y), w: or.w, h: or.h, vertical: or.vertical };
+        }
+    }
+    return fallback;
+}
+
+function clearGenreCloudPlacement() {
+    const modal = $("#genre-cloud-modal");
+    const panel = $(".modal-genre-cloud");
+    const overlay = $("#genre-cloud-overlay");
+    if (modal) {
+        modal.style.top = "";
+        modal.style.left = "";
+        modal.style.right = "";
+        modal.style.bottom = "";
+        modal.style.width = "";
+        modal.style.height = "";
+    }
+    if (panel) {
+        panel.style.top = "";
+        panel.style.left = "";
+        panel.style.right = "";
+        panel.style.bottom = "";
+        panel.style.width = "";
+        panel.style.minWidth = "";
+        panel.style.maxWidth = "";
+        panel.style.height = "";
+        panel.style.transform = "";
+    }
+    overlay?.classList.remove("is-pass-through");
+}
+
+function genreCloudDockLeft() {
+    const sidebar = $("#sidebar");
+    const gap = GENRE_CLOUD_SIDEBAR_GAP;
+    if (!sidebar) return 8 + 340 + gap;
+    if (document.body.classList.contains("panel-is-dragging") || sidebar.classList.contains("is-dragging")) {
+        return Math.round(sidebar.getBoundingClientRect().right + gap);
+    }
+    const leftPx = parseFloat(getComputedStyle(sidebar).left);
+    const baseLeft = Number.isFinite(leftPx) ? leftPx : 8;
+    const w = sidebar.offsetWidth || 340;
+    return Math.round(baseLeft + w + getPanelDragOffset(sidebar) + gap);
+}
+
+function syncGenreCloudPlacement() {
+    const modal = $("#genre-cloud-modal");
+    const panel = $(".modal-genre-cloud");
+    const overlay = $("#genre-cloud-overlay");
+    if (!modal || modal.classList.contains("hidden")) return;
+    if (isGenreCloudUnavailable()) {
+        closeGenreCloudModal();
+        return;
+    }
+    if (!panel) return;
+    overlay?.classList.remove("is-pass-through");
+    const left = genreCloudDockLeft();
+    panel.style.top = "50%";
+    panel.style.left = `${left}px`;
+    panel.style.right = "auto";
+    panel.style.bottom = "auto";
+    panel.style.width = `${GENRE_CLOUD_PANEL_W}px`;
+    panel.style.minWidth = `${GENRE_CLOUD_PANEL_W}px`;
+    panel.style.maxWidth = `${GENRE_CLOUD_PANEL_W}px`;
+    panel.style.height = "auto";
+    panel.style.transform = "translateY(-50%)";
+}
+
+function relayoutGenreCloudIfOpen({ forcePack = false } = {}) {
+    const modal = $("#genre-cloud-modal");
+    if (!modal || modal.classList.contains("hidden")) return;
+    syncGenreCloudPlacement();
+    const root = $("#genre-cloud");
+    if (!root) return;
+    if (forcePack) genreCloudPackedWidth = -1;
+    packGenreCloud(root);
+}
+
+function stopGenreCloudMotion() {
+    if (genreCloudMotionRaf) {
+        cancelAnimationFrame(genreCloudMotionRaf);
+        genreCloudMotionRaf = 0;
+    }
+    genreCloudBodies = [];
+    genreCloudMotionLast = 0;
+}
+
+function startGenreCloudMotion(root) {
+    stopGenreCloudMotion();
+    if (!root || prefersReducedMotion()) return;
+    if ($("#genre-cloud-modal")?.classList.contains("hidden")) return;
+    const words = [...root.querySelectorAll(".genre-cloud-word")];
+    if (!words.length) return;
+    genreCloudBodies = words.map((el, i) => ({
+        el,
+        w: el.offsetWidth || 1,
+        h: el.offsetHeight || 1,
+        x0: parseFloat(el.style.left) || 0,
+        y0: parseFloat(el.style.top) || 0,
+        ox: 0,
+        oy: 0,
+        vx: 0,
+        vy: 0,
+        seed: i * 1.618 + Math.random() * 6.2,
+    }));
+    genreCloudMotionLast = performance.now();
+    const tick = (now) => {
+        if ($("#genre-cloud-modal")?.classList.contains("hidden")) {
+            stopGenreCloudMotion();
+            return;
+        }
+        const dt = Math.min(0.033, Math.max(0.008, (now - genreCloudMotionLast) / 1000));
+        genreCloudMotionLast = now;
+        if (!document.hidden) stepGenreCloudPhysics(dt, now);
+        genreCloudMotionRaf = requestAnimationFrame(tick);
+    };
+    genreCloudMotionRaf = requestAnimationFrame(tick);
+}
+
+function stepGenreCloudPhysics(dt, now) {
+    const n = genreCloudBodies.length;
+    if (!n) return;
+    const fx = new Float64Array(n);
+    const fy = new Float64Array(n);
+    const t = now * 0.001;
+    const SPRING = 12;
+    const DAMP = 5.2;
+    const BROWN = 1.8;
+    const REPEL = 22;
+    const ATTRACT = 2.4;
+
+    for (let i = 0; i < n; i++) {
+        const b = genreCloudBodies[i];
+        fx[i] += -SPRING * b.ox - DAMP * b.vx;
+        fy[i] += -SPRING * b.oy - DAMP * b.vy;
+        fx[i] += Math.sin(t * 0.42 + b.seed) * BROWN;
+        fy[i] += Math.cos(t * 0.37 + b.seed * 1.27) * BROWN;
+    }
+
+    for (let i = 0; i < n; i++) {
+        const a = genreCloudBodies[i];
+        const ax = a.x0 + a.ox + a.w * 0.5;
+        const ay = a.y0 + a.oy + a.h * 0.5;
+        for (let j = i + 1; j < n; j++) {
+            const b = genreCloudBodies[j];
+            const bx = b.x0 + b.ox + b.w * 0.5;
+            const by = b.y0 + b.oy + b.h * 0.5;
+            const dx = bx - ax;
+            const dy = by - ay;
+            const dist = Math.hypot(dx, dy) || 0.001;
+            const minD = (a.w + b.w) * 0.18 + (a.h + b.h) * 0.18 + 8;
+            const nx = dx / dist;
+            const ny = dy / dist;
+            if (dist < minD) {
+                const f = ((minD - dist) / minD) * REPEL;
+                fx[i] -= nx * f;
+                fy[i] -= ny * f;
+                fx[j] += nx * f;
+                fy[j] += ny * f;
+            } else if (dist < minD * 1.85) {
+                const f = (1 - dist / (minD * 1.85)) * ATTRACT;
+                fx[i] += nx * f;
+                fy[i] += ny * f;
+                fx[j] -= nx * f;
+                fy[j] -= ny * f;
+            }
+        }
+    }
+
+    for (let i = 0; i < n; i++) {
+        const b = genreCloudBodies[i];
+        b.vx += fx[i] * dt;
+        b.vy += fy[i] * dt;
+        const sp = Math.hypot(b.vx, b.vy);
+        if (sp > GENRE_CLOUD_MAX_SPEED) {
+            const s = GENRE_CLOUD_MAX_SPEED / sp;
+            b.vx *= s;
+            b.vy *= s;
+        }
+        b.ox += b.vx * dt;
+        b.oy += b.vy * dt;
+        const d = Math.hypot(b.ox, b.oy);
+        if (d > GENRE_CLOUD_MAX_DISP) {
+            const s = GENRE_CLOUD_MAX_DISP / d;
+            b.ox *= s;
+            b.oy *= s;
+        }
+        b.el.style.transform = `translate(${b.ox.toFixed(2)}px, ${b.oy.toFixed(2)}px)`;
+    }
+}
+
+function syncGenreCloudActive() {
+    const root = $("#genre-cloud");
+    if (!root) return;
+    const active = ($("#filter-genre")?.value || "").trim();
+    root.querySelectorAll(".genre-cloud-word").forEach(el => {
+        const on = (el.dataset.genre || "") === active;
+        el.classList.toggle("is-active", on);
+        el.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+}
+
+function genreCloudMeasureItems(words) {
+    return words.map(el => {
+        el.classList.remove("is-vertical");
+        el.style.transform = "";
+        el.style.left = "0";
+        el.style.top = "0";
+        const hw = el.offsetWidth;
+        const hh = el.offsetHeight;
+        const canV = genreCloudCanVertical(el.dataset.genre || "");
+        let vw = hw;
+        let vh = hh;
+        if (canV) {
+            el.classList.add("is-vertical");
+            vw = el.offsetWidth;
+            vh = el.offsetHeight;
+            el.classList.remove("is-vertical");
+        }
+        return { el, hw, hh, vw, vh, canV };
+    });
+}
+
+function genreCloudPlaceItems(items, width) {
+    const first = items[0];
+    first.el.classList.remove("is-vertical");
+    const placed = [{
+        el: first.el,
+        x: Math.round(-first.hw / 2 + first.hw * 0.05),
+        y: Math.round(-first.hh / 2 - first.hh * 0.06),
+        w: first.hw,
+        h: first.hh,
+        vertical: false,
+    }];
+    let vCount = 0;
+    let hCount = 1;
+    for (let i = 1; i < items.length; i++) {
+        const slot = genreCloudPickSlot(items[i], placed, width, GENRE_CLOUD_GAP, vCount, hCount);
+        if (!slot) continue;
+        items[i].el.classList.toggle("is-vertical", !!slot.vertical);
+        placed.push({ el: items[i].el, ...slot });
+        if (slot.vertical) vCount += 1;
+        else hCount += 1;
+    }
+    return placed;
+}
+
+function genreCloudPackExtent(placed) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i < placed.length; i++) {
+        const p = placed[i];
+        if (p.x < minX) minX = p.x;
+        if (p.y < minY) minY = p.y;
+        const r = p.x + p.w;
+        const b = p.y + p.h;
+        if (r > maxX) maxX = r;
+        if (b > maxY) maxY = b;
+    }
+    return {
+        minX,
+        minY,
+        packW: Math.max(1, maxX - minX),
+        packH: Math.max(1, maxY - minY),
+    };
+}
+
+function genreCloudFitScale(packW, packH, maxFont, wordCount, fullW) {
+    const maxH = genreCloudMaxHeight();
+    const availW = Math.max(8, fullW - GENRE_CLOUD_FILL_MARGIN * 2);
+    const availH = Math.max(8, maxH - GENRE_CLOUD_HOVER_PAD - GENRE_CLOUD_PAD_BOTTOM);
+    const fill = genreCloudFillTarget(wordCount);
+    const { short } = genreCloudPanelBox();
+    const sFit = Math.min(availW / packW, availH / packH);
+    const sFill = sFit * fill;
+    const sCap = (short * GENRE_CLOUD_MAX_RATIO_HARD) / Math.max(1, maxFont);
+    return { s: Math.min(sFill, sCap, sFit), availH };
+}
+
+function packGenreCloud(root) {
+    if (!root) return;
+    const words = [...root.querySelectorAll(".genre-cloud-word")];
+    if (!words.length) {
+        stopGenreCloudMotion();
+        hideGenreCloudTip();
+        resetGenreCloudBox(root);
+        genreCloudPackedWidth = -1;
+        return;
+    }
+    const fullW = Math.floor(root.clientWidth);
+    const width = Math.max(8, fullW - GENRE_CLOUD_PAD_X * 2);
+    if (fullW < 8) return;
+
+    stopGenreCloudMotion();
+    hideGenreCloudTip();
+    root.style.transform = "";
+    root.style.marginBottom = "";
+
+    const sizes = words.map(el => parseFloat(el.dataset.baseSize) || GENRE_CLOUD_SIZE_MIN);
+    const maxBase = Math.max(...sizes);
+    const minBase = Math.min(...sizes);
+    const spanBase = maxBase - minBase;
+
+    for (let i = 0; i < words.length; i++) {
+        words[i].style.fontSize = `${sizes[i]}px`;
+    }
+    const probe = genreCloudPackExtent(genreCloudPlaceItems(genreCloudMeasureItems(words), width));
+    const estimate = genreCloudFitScale(probe.packW, probe.packH, maxBase, words.length, fullW);
+    const actualMax = Math.max(GENRE_CLOUD_SIZE_MIN, maxBase * estimate.s);
+    const actualMin = Math.min(
+        actualMax,
+        Math.max(GENRE_CLOUD_SIZE_MIN, minBase * estimate.s * GENRE_CLOUD_MIN_FILL_FACTOR)
+    );
+
+    const dispSizes = [];
+    for (let i = 0; i < words.length; i++) {
+        const t = spanBase <= 0 ? 1 : (sizes[i] - minBase) / spanBase;
+        const fontSize = actualMin + t * (actualMax - actualMin);
+        dispSizes.push(fontSize);
+        words[i].style.fontSize = `${fontSize}px`;
+    }
+
+    const placed = genreCloudPlaceItems(genreCloudMeasureItems(words), width);
+    const { minX, minY, packW, packH } = genreCloudPackExtent(placed);
+    const maxDisp = Math.max(...dispSizes);
+    const minDisp = Math.min(...dispSizes);
+    const fit = genreCloudFitScale(packW, packH, maxDisp, words.length, fullW);
+    const sFloor = GENRE_CLOUD_SIZE_MIN / Math.max(GENRE_CLOUD_SIZE_MIN, minDisp);
+    const s2 = Math.min(1, fit.s);
+    const s = s2 >= sFloor ? s2 : sFloor;
+    const usedW = packW * s;
+    const usedH = packH * s;
+    const offsetX = (fullW - usedW) / 2;
+    const extraY = (fit.availH - usedH) / 2;
+    const offsetY = GENRE_CLOUD_HOVER_PAD + extraY;
+    for (let i = 0; i < placed.length; i++) {
+        const p = placed[i];
+        const fontSize = Math.max(
+            GENRE_CLOUD_SIZE_MIN,
+            (parseFloat(p.el.style.fontSize) || minDisp) * s
+        );
+        p.el.style.fontSize = `${fontSize}px`;
+        p.el.style.left = `${(p.x - minX) * s + offsetX}px`;
+        p.el.style.top = `${(p.y - minY) * s + offsetY}px`;
+    }
+    root.style.height = `${Math.ceil(fit.availH + GENRE_CLOUD_HOVER_PAD + GENRE_CLOUD_PAD_BOTTOM)}px`;
+    root.style.transform = "";
+    root.style.marginBottom = "";
+    genreCloudPackedWidth = Math.floor(root.clientWidth);
+    startGenreCloudMotion(root);
+}
+
+function hideGenreCloudTip() {
+    const tip = $("#genre-cloud-tip");
+    if (!tip) return;
+    tip.hidden = true;
+    tip.textContent = "";
+    tip.classList.remove("is-active");
+}
+
+function moveGenreCloudTip(e, word) {
+    const tip = $("#genre-cloud-tip");
+    if (!tip || !word) return;
+    tip.textContent = word.dataset.count || "";
+    tip.hidden = false;
+    tip.classList.toggle("is-active", word.classList.contains("is-active"));
+    tip.style.left = `${e.clientX + GENRE_CLOUD_TIP_OX}px`;
+    tip.style.top = `${e.clientY + GENRE_CLOUD_TIP_OY}px`;
+}
+
+function onGenreCloudPointerMove(e) {
+    const word = e.target.closest?.(".genre-cloud-word");
+    if (!word || !$("#genre-cloud")?.contains(word)) {
+        hideGenreCloudTip();
+        return;
+    }
+    moveGenreCloudTip(e, word);
+}
+
+function renderGenreCloud() {
+    const root = $("#genre-cloud");
+    if (!root) return;
+    hideGenreCloudTip();
+    const counts = libraryCountsForCloud();
+    if (state.filters) state.filters.genre_counts = counts;
+    if (!counts.length) {
+        root.innerHTML = '<p class="genre-cloud-empty">暂无类型数据</p>';
+        resetGenreCloudBox(root);
+        genreCloudPackedWidth = -1;
+        return;
+    }
+    const minCount = Math.min(...counts.map(c => c.count));
+    const maxCount = Math.max(...counts.map(c => c.count));
+    const { short } = genreCloudPanelBox();
+    const sizeMin = GENRE_CLOUD_SIZE_MIN;
+    const sizeMax = Math.max(sizeMin + 6, Math.round(short * GENRE_CLOUD_MAX_RATIO));
+    const active = ($("#filter-genre")?.value || "").trim();
+    const ordered = [...counts].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "zh"));
+    root.innerHTML = ordered.map(item => {
+        const st = genreCloudStyle(item.count, minCount, maxCount, sizeMin, sizeMax);
+        const isActive = item.label === active;
+        return `<button type="button" class="genre-cloud-word${isActive ? " is-active" : ""}" data-genre="${escapeHtml(item.label)}" data-count="${item.count}" data-base-size="${st.size}" data-rank="${st.rank}" aria-label="${escapeHtml(item.label)}，${item.count} 张" aria-pressed="${isActive ? "true" : "false"}" style="font-size:${st.size}px;font-weight:${st.weight};--genre-cloud-fg:${st.color}"><span class="genre-cloud-label">${escapeHtml(item.label)}</span></button>`;
+    }).join("");
+    packGenreCloud(root);
+}
+
+function initGenreCloudLayout() {
+    const root = $("#genre-cloud");
+    if (root && typeof ResizeObserver !== "undefined") {
+        new ResizeObserver(() => {
+            if ($("#genre-cloud-modal")?.classList.contains("hidden")) return;
+            const w = Math.round(root.clientWidth);
+            if (!w || w === genreCloudPackedWidth) return;
+            packGenreCloud(root);
+        }).observe(root);
+    }
+    window.addEventListener("resize", () => {
+        relayoutGenreCloudIfOpen({ forcePack: true });
+    });
+    root?.addEventListener("pointermove", onGenreCloudPointerMove);
+    root?.addEventListener("pointerleave", hideGenreCloudTip);
+    root?.addEventListener("pointercancel", hideGenreCloudTip);
+}
+
+async function openGenreCloudModal() {
+    if (isGenreCloudUnavailable()) return;
+    const modal = $("#genre-cloud-modal");
+    const btn = $("#btn-genre-cloud");
+    if (!modal) return;
+    try {
+        await loadFilters();
+    } catch (e) {
+        if (state.filters) {
+            state.filters.genre_counts = resolveGenreCounts(state.filters);
+        }
+    }
+    if (isGenreCloudUnavailable()) return;
+    modal.classList.remove("hidden");
+    document.documentElement.classList.add("genre-cloud-open");
+    syncGenreCloudPlacement();
+    renderGenreCloud();
+    if (document.fonts?.ready) {
+        document.fonts.ready.then(() => {
+            if (!modal.classList.contains("hidden")) packGenreCloud($("#genre-cloud"));
+        });
+    }
+    if (btn) btn.setAttribute("aria-expanded", "true");
+    $("#modal-close-genre-cloud")?.focus();
+}
+
+function closeGenreCloudModal() {
+    const modal = $("#genre-cloud-modal");
+    const btn = $("#btn-genre-cloud");
+    hideGenreCloudTip();
+    stopGenreCloudMotion();
+    document.documentElement.classList.remove("genre-cloud-open");
+    if (modal) modal.classList.add("hidden");
+    clearGenreCloudPlacement();
+    if (btn) {
+        btn.setAttribute("aria-expanded", "false");
+        if (!btn.hidden && !isGenreCloudUnavailable()) btn.focus();
+    }
+}
+
+function applyGenreFromCloud(label) {
+    const genreEl = $("#filter-genre");
+    if (!genreEl) return;
+    const value = String(label || "").trim();
+    if (value && ![...genreEl.options].some(o => o.value === value)) {
+        populateGenreFilter([...(state.filters?.genres || []), value]);
+    }
+    genreEl.value = value;
+    syncGenreCloudActive();
+    doSearch();
 }
 
 // ===== 上传 & 识别流程（新） =====
@@ -5559,6 +6574,7 @@ function initFloatingPanelDrag(panel, handle, { edge, storageKey }) {
         offsetX = x;
         setPanelDragOffset(panel, x, opts);
         try { sessionStorage.setItem(storageKey, String(Math.round(x))); } catch (_) { /* ignore */ }
+        syncGenreCloudPlacement();
     };
 
     // restore（详情面板若仍 hidden，宽度可能为 0，稍后再校正）
@@ -5587,6 +6603,7 @@ function initFloatingPanelDrag(panel, handle, { edge, storageKey }) {
         panel.classList.add("is-dragging");
         panel.style.setProperty("--drag-x", `${Math.round(next)}px`);
         offsetX = next;
+        syncGenreCloudPlacement();
         e.preventDefault();
     };
 
@@ -5616,6 +6633,7 @@ function initFloatingPanelDrag(panel, handle, { edge, storageKey }) {
         const snapped = clamp(snapPanelOffset(offsetX, snaps), min, max);
         panel.classList.remove("is-dragging");
         apply(snapped, { animate: true });
+        syncGenreCloudPlacement();
         void endedId;
     };
 
@@ -5821,6 +6839,15 @@ function bindEvents() {
     $("#modal-close-manual")?.addEventListener("click", closeManualModal);
     $("#manual-overlay")?.addEventListener("click", closeManualModal);
 
+    initGenreCloudLayout();
+    $("#btn-genre-cloud")?.addEventListener("click", openGenreCloudModal);
+    $("#modal-close-genre-cloud")?.addEventListener("click", closeGenreCloudModal);
+    $("#genre-cloud")?.addEventListener("click", e => {
+        const word = e.target.closest(".genre-cloud-word");
+        if (!word) return;
+        applyGenreFromCloud(word.dataset.genre || "");
+    });
+
     $("#wall-image").addEventListener("click", () => {
         if (!$("#detail-panel").classList.contains("hidden")) closeDetail();
     });
@@ -5892,6 +6919,7 @@ function bindEvents() {
     document.addEventListener("keydown", e => {
         if (e.key === "Escape") {
             if ($("#ar-zoom-overlay").classList.contains("active")) { closeArZoom(); return; }
+            if (!$("#genre-cloud-modal")?.classList.contains("hidden")) { closeGenreCloudModal(); return; }
             if (!$("#spine-boxes-modal")?.classList.contains("hidden")) { closeSpineBoxesEditor(); return; }
             if (!$("#manual-modal")?.classList.contains("hidden")) { closeManualModal(); return; }
             if (!$("#solo-placement-modal").classList.contains("hidden")) { closeSoloPlacementEditor(); return; }

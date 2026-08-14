@@ -49,7 +49,8 @@ from config import (
     SPINE_BOXES_FOLDER, SPINE_RESULTS_FOLDER,
 )
 from database import (init_db, add_disc, update_disc, delete_disc, get_disc,
-                       get_all_discs, search_discs, get_all_genres, get_all_years,
+                       get_all_discs, search_discs, get_all_years,
+                       get_genre_counts,
                        get_stats, add_wall_image, get_all_wall_images, get_wall_image,
                        update_wall_image, delete_wall_image, clear_image_records,
                        save_ocr_result, get_discs_by_source_image,
@@ -1831,7 +1832,12 @@ def _do_compare_poster(task_id, spine_path, poster_url, movie_title, movie_year,
 
 @app.route("/api/filters")
 def api_get_filters():
-    return jsonify({"genres": get_all_genres(), "years": get_all_years()})
+    genre_counts = get_genre_counts()
+    return jsonify({
+        "genres": [item["label"] for item in genre_counts],
+        "years": get_all_years(),
+        "genre_counts": genre_counts,
+    })
 
 
 @app.route("/api/stats")

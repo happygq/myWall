@@ -41,7 +41,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=3.14q">
+    <link rel="stylesheet" href="/static/css/style.css?v=3.15p">
 </head>
 <body class="readonly">
 
@@ -114,6 +114,14 @@
                     <option value="3">喜好 · 橙</option>
                     <option value="0">未标注</option>
                 </select>
+                <button type="button" class="sidebar-icon-btn" id="btn-genre-cloud" title="热词筛选" aria-label="热词筛选" aria-haspopup="dialog" aria-controls="genre-cloud-modal" aria-expanded="false">
+                    <svg class="sidebar-icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <rect x="2.6" y="5" width="11.2" height="7.6" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/>
+                        <rect x="15.2" y="3.8" width="6.2" height="4.8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.75"/>
+                        <rect x="13.4" y="11" width="8" height="9.2" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/>
+                        <circle cx="8.2" cy="17.8" r="2.4" fill="none" stroke="currentColor" stroke-width="1.75"/>
+                    </svg>
+                </button>
             </div>
         </div>
 
@@ -590,6 +598,31 @@
         </div>
     </div>
 
+    <!-- 热词筛选 -->
+    <div id="genre-cloud-modal" class="modal genre-cloud-layer hidden" role="dialog" aria-modal="false" aria-labelledby="genre-cloud-title">
+        <div class="modal-overlay genre-cloud-overlay" id="genre-cloud-overlay"></div>
+        <div class="modal-content modal-genre-cloud">
+            <div class="modal-header">
+                <h2 id="genre-cloud-title">
+                    <svg class="disc-card-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <rect x="2.6" y="5" width="11.2" height="7.6" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/>
+                        <rect x="15.2" y="3.8" width="6.2" height="4.8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.75"/>
+                        <rect x="13.4" y="11" width="8" height="9.2" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/>
+                        <circle cx="8.2" cy="17.8" r="2.4" fill="none" stroke="currentColor" stroke-width="1.75"/>
+                    </svg>
+                    <span class="modal-title-text">热词筛选</span>
+                </h2>
+                <div class="modal-header-actions">
+                    <button type="button" class="modal-close" id="modal-close-genre-cloud" aria-label="关闭">✕</button>
+                </div>
+            </div>
+            <div class="modal-body genre-cloud-body">
+                <div id="genre-cloud" class="genre-cloud" role="group" aria-label="热词筛选"></div>
+            </div>
+        </div>
+        <div id="genre-cloud-tip" class="genre-cloud-tip" hidden aria-hidden="true"></div>
+    </div>
+
     <!-- 使用手册 -->
     <div id="manual-modal" class="modal hidden">
         <div class="modal-overlay" id="manual-overlay"></div>
@@ -610,6 +643,6 @@
     <!-- Toast -->
     <div id="toast" class="toast hidden"></div>
 
-    <script src="/static/js/app.js?v=3.14q"></script>
+    <script src="/static/js/app.js?v=3.15p"></script>
 </body>
 </html>

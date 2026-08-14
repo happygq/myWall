@@ -1,6 +1,7 @@
 # Secrets / local keys
 data/api_keys.json
 data/api_keys.json.tmp
+data/api_keys*.json
 .env
 .env.local
 .env.*

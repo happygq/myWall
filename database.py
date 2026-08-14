@@ -4,6 +4,7 @@ import json
 import os
 from contextlib import contextmanager
 from config import DATABASE_PATH
+from genre_normalize import disc_matches_genre, display_genres, ordered_genre_labels
 
 
 def get_db():
@@ -239,9 +240,6 @@ def search_discs(keyword=None, genre=None, year=None, confirmed=None, preference
         sql += " AND (title_cn LIKE ? OR title_en LIKE ? OR synopsis_cn LIKE ?)"
         kw = f"%{keyword}%"
         params.extend([kw, kw, kw])
-    if genre:
-        sql += " AND genres LIKE ?"
-        params.append(f"%{genre}%")
     if year:
         sql += " AND year = ?"
         params.append(year)
@@ -254,20 +252,31 @@ def search_discs(keyword=None, genre=None, year=None, confirmed=None, preference
     sql += " ORDER BY title_cn"
     rows = conn.execute(sql, params).fetchall()
     conn.close()
-    return [_format_disc(r) for r in rows]
+    discs = [_format_disc(r) for r in rows]
+    if genre:
+        discs = [d for d in discs if disc_matches_genre(d.get("genres"), genre)]
+    return discs
 
 
-def get_all_genres():
-    """获取所有已使用的分类"""
+def get_genre_counts():
+    """每个归一中文类型命中的碟数（一条碟可计入多个类型，与筛选一致）。"""
     conn = get_db()
     rows = conn.execute("SELECT genres FROM discs WHERE genres != '[]'").fetchall()
     conn.close()
-    genre_set = set()
+    counts = {}
     for row in rows:
-        genres = json.loads(row["genres"])
-        for g in genres:
-            genre_set.add(g)
-    return sorted(genre_set)
+        try:
+            genres = json.loads(row["genres"] or "[]")
+        except (TypeError, json.JSONDecodeError):
+            continue
+        for label in display_genres(genres):
+            counts[label] = counts.get(label, 0) + 1
+    return [{"label": k, "count": counts[k]} for k in ordered_genre_labels(counts.keys())]
+
+
+def get_all_genres():
+    """筛选下拉用的中文归一组（库内原始字符串不改）。"""
+    return [item["label"] for item in get_genre_counts()]
 
 
 def get_all_years():
@@ -312,6 +321,7 @@ def _format_disc(row):
     d = dict(row)
     for field in ("directors", "cast", "genres"):
         d[field] = json.loads(d.get(field, "[]") or "[]")
+    d["genres_cn"] = display_genres(d.get("genres"))
     d["flagged"] = 1 if d.get("flagged") else 0
     try:
         pref = int(d.get("preference") or 0)

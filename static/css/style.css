@@ -108,6 +108,15 @@ body {
     filter: brightness(var(--wall-brightness));
 }
 
+/* 热词图打开：只虚化墙面，侧栏与热词面板保持清晰 */
+html.genre-cloud-open #wall-image {
+    filter: brightness(var(--wall-brightness)) blur(14px);
+}
+
+html.genre-cloud-open .wall-coord-layer {
+    filter: blur(14px);
+}
+
 /* ??? object-fit ????????????????????????? */
 .wall-coord-layer {
     position: absolute;
@@ -732,7 +741,7 @@ body:not(.readonly) .edit-mode-toggle:focus-visible {
 .search-box {
     display: flex;
     align-items: center;
-    margin: 12px 16px;
+    margin: 8px 16px 4px;
     background: var(--bg-mid);
     border-radius: var(--radius-search);
     border: none;
@@ -783,28 +792,41 @@ body:not(.readonly) .edit-mode-toggle:focus-visible {
 
 /* ===== filters ===== */
 .filter-section {
-    padding: 0 16px 10px;
+    padding: 0 16px 8px;
 }
 
 .filter-row {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    flex-wrap: nowrap;
+    gap: 6px;
+    align-items: center;
 }
 
 .filter-row select {
-    flex: 1 1 96px;
+    flex: 1 1 0;
     min-width: 0;
     background: var(--bg-mid);
     color: var(--text-base);
     border: none;
     box-shadow: var(--inset-border);
-    padding: 8px 12px;
+    padding: 8px 8px;
     border-radius: var(--radius-sm);
     font-size: 13px;
     outline: none;
     cursor: pointer;
     font-family: var(--font);
+}
+
+.filter-row #btn-genre-cloud {
+    flex-shrink: 0;
+}
+
+html.is-narrow #btn-genre-cloud {
+    display: none !important;
+}
+
+html.is-narrow #genre-cloud-modal {
+    display: none !important;
 }
 
 .filter-tags {
@@ -1548,6 +1570,11 @@ body:not(.readonly) .edit-mode-toggle:focus-visible {
     .sidebar-footer-chevron {
         transition: none;
     }
+
+    .genre-cloud-word {
+        will-change: auto;
+        transform: none !important;
+    }
 }
 
 .btn {
@@ -2013,6 +2040,180 @@ body:not(.readonly) .edit-mode-toggle:focus-visible {
 
 .modal-body {
     padding: 20px;
+}
+
+/* ===== genre word cloud ===== */
+/* 浮在墙面主区：z-index 低于 #sidebar；面板 JS 贴侧栏右缘，层本身仍盖墙面 */
+#genre-cloud-modal.genre-cloud-layer {
+    z-index: 90;
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    left: calc(8px + 340px + 8px);
+    width: auto;
+    height: auto;
+    align-items: center;
+    justify-content: center;
+}
+
+#genre-cloud-modal .genre-cloud-overlay {
+    display: none;
+    background: rgba(18, 18, 18, 0.22);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+#genre-cloud-modal .genre-cloud-overlay.is-pass-through {
+    pointer-events: none;
+    background: transparent;
+}
+
+.modal-content.modal-genre-cloud {
+    /* 固定宽高贴侧栏右缘；left 由 JS 按 sidebar.getBoundingClientRect().right + 12 更新 */
+    position: fixed;
+    left: calc(8px + 340px + 12px);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 640px;
+    min-width: 640px;
+    max-width: 640px;
+    flex-shrink: 0;
+    max-height: min(88vh, 860px);
+    height: auto;
+    overflow: hidden;
+    background: rgba(18, 18, 18, 0.72);
+    pointer-events: auto;
+    filter: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    transition: left 0.2s ease;
+}
+
+body.panel-is-dragging .modal-content.modal-genre-cloud {
+    transition: none;
+}
+
+.modal-genre-cloud .modal-header {
+    padding-bottom: 8px;
+    flex-shrink: 0;
+    background: transparent;
+}
+
+.genre-cloud-body {
+    padding: 4px 16px 12px;
+    overflow: hidden;
+    display: block;
+}
+
+.genre-cloud {
+    position: relative;
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    line-height: 1;
+}
+
+.genre-cloud-word {
+    position: absolute;
+    appearance: none;
+    -webkit-appearance: none;
+    background: none;
+    border: none;
+    box-shadow: none;
+    cursor: pointer;
+    font-family: var(--font);
+    color: var(--genre-cloud-fg, var(--text-silver));
+    line-height: 1;
+    padding: 0 1px;
+    margin: 0;
+    border-radius: 2px;
+    letter-spacing: -0.03em;
+    white-space: nowrap;
+    user-select: none;
+    width: max-content;
+    height: max-content;
+    overflow: visible;
+    transition: color 0.15s ease;
+    transform: translate(0, 0);
+    will-change: transform;
+}
+
+.genre-cloud-word.is-vertical {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    padding: 1px 0;
+    letter-spacing: 0.04em;
+}
+
+.genre-cloud-word.is-vertical .genre-cloud-label {
+    writing-mode: vertical-rl;
+}
+
+.genre-cloud-word:hover {
+    color: var(--text-base);
+    z-index: 3;
+}
+
+.genre-cloud-word:focus {
+    outline: none;
+}
+
+.genre-cloud-word:focus-visible {
+    color: var(--text-base);
+    z-index: 3;
+    outline: 1px solid var(--border-gray);
+    outline-offset: 1px;
+}
+
+.genre-cloud-word.is-active {
+    color: var(--spotify-green);
+}
+
+.genre-cloud-word.is-active:hover,
+.genre-cloud-word.is-active:focus-visible {
+    color: var(--accent-light);
+}
+
+.genre-cloud-word.is-active:focus-visible {
+    outline-color: var(--spotify-green);
+}
+
+.genre-cloud-count {
+    display: none;
+}
+
+.genre-cloud-tip {
+    position: fixed;
+    z-index: 96;
+    margin: 0;
+    padding: 0;
+    border: none;
+    outline: none;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    font-family: var(--font);
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0;
+    color: var(--text-base);
+    white-space: nowrap;
+    pointer-events: none;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.72);
+    transform: none;
+}
+
+.genre-cloud-tip.is-active {
+    color: var(--spotify-green);
+}
+
+.genre-cloud-empty {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 32px 12px;
+    width: 100%;
 }
 
 /* ===== upload zone ===== */
@@ -2886,7 +3087,7 @@ html.is-narrow .view-mode-btn {
 }
 
 html.is-narrow .search-box {
-    margin: 6px 12px;
+    margin: 6px 12px 2px;
 }
 
 html.is-narrow .search-box input {
@@ -2956,6 +3157,27 @@ html.is-narrow .detail-panel.hidden {
 
 html.is-narrow .detail-panel:not(.hidden) {
     transform: none !important;
+}
+
+html.is-narrow #genre-cloud-modal.genre-cloud-layer {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: auto;
+    width: 100%;
+    height: var(--wall-strip);
+    max-height: 36vh;
+}
+
+html.is-narrow .modal-content.modal-genre-cloud {
+    position: relative;
+    left: auto;
+    top: auto;
+    transform: none;
+    width: min(640px, 100%);
+    min-width: 0;
+    max-width: 100%;
+    flex-shrink: 1;
 }
 
 /* 粗指针或宽<900：不依赖 is-narrow；禁止 45vh 底栏浮层 / 横滑 / 拖动手把 */
@@ -3111,7 +3333,7 @@ html.is-narrow .detail-panel:not(.hidden) {
     }
 
     .search-box {
-        margin: 6px 12px;
+        margin: 6px 12px 2px;
     }
 
     .search-box input {
@@ -3125,6 +3347,14 @@ html.is-narrow .detail-panel:not(.hidden) {
 
     .filter-row select {
         font-size: 16px;
+    }
+
+    #btn-genre-cloud {
+        display: none !important;
+    }
+
+    #genre-cloud-modal {
+        display: none !important;
     }
 
     .stats-bar {
@@ -3167,6 +3397,27 @@ html.is-narrow .detail-panel:not(.hidden) {
         transform: none !important;
         --drag-x: 0px;
         border-radius: 0;
+    }
+
+    #genre-cloud-modal.genre-cloud-layer {
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: auto;
+        width: 100%;
+        height: var(--wall-strip);
+        max-height: 36vh;
+    }
+
+    .modal-content.modal-genre-cloud {
+        position: relative;
+        left: auto;
+        top: auto;
+        transform: none;
+        width: min(640px, 100%);
+        min-width: 0;
+        max-width: 100%;
+        flex-shrink: 1;
     }
 }
 
