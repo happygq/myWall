@@ -8016,9 +8016,15 @@ function bindEvents() {
     $("#search-input").addEventListener("input", debounce(doSearch, 300));
     $("#search-btn").addEventListener("click", doSearch);
     $("#search-input").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
-    $("#filter-genre").addEventListener("change", doSearch);
-    $("#filter-year").addEventListener("change", doSearch);
-    $("#filter-preference")?.addEventListener("change", doSearch);
+    // Chrome on Windows keeps focus on a select after picking, so the control
+    // would stay in its focused state; drop focus once the choice is committed.
+    const onFilterChange = e => {
+        e.currentTarget?.blur();
+        doSearch();
+    };
+    $("#filter-genre").addEventListener("change", onFilterChange);
+    $("#filter-year").addEventListener("change", onFilterChange);
+    $("#filter-preference")?.addEventListener("change", onFilterChange);
     $("#detail-close").addEventListener("click", closeDetail);
 
     $("#btn-manual")?.addEventListener("click", openManualModal);

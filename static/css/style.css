@@ -981,9 +981,14 @@ body:not(.readonly) .edit-mode-toggle:focus-visible {
     color: var(--text-base);
 }
 
-.filter-row select:focus-visible {
-    outline: 1px solid rgba(179, 179, 179, 0.45);
-    outline-offset: 1px;
+/* No lingering ring after picking a value: the selected label is the feedback.
+   Search box focus styling is unaffected. */
+.filter-row select:focus,
+.filter-row select:focus-visible,
+.filter-row select:active {
+    outline: none;
+    box-shadow: none;
+    border: none;
 }
 
 .filter-row select:disabled {
