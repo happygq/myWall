@@ -1716,8 +1716,8 @@ function closeDetail() {
 
 function manualSrc() {
     return window.MyWallI18n?.getUiLang() === "zh"
-        ? "/static/docs/manual.html?v=3.16f"
-        : "/static/docs/manual.en.html?v=5.0c";
+        ? "/static/docs/manual.html?v=5.0r"
+        : "/static/docs/manual.en.html?v=5.0r";
 }
 
 function syncManualLinks() {

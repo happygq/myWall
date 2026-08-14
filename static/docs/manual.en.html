@@ -2,73 +2,412 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>myWall User Manual — v4.1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>myWall User Manual — v4.1 i18n</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { color-scheme: dark; --bg:#121212; --surface:#181818; --text:#fff; --muted:#b3b3b3; --green:#1ed760; }
-        * { box-sizing: border-box; }
-        body { margin:0; background:var(--bg); color:var(--text); font:14px/1.55 Outfit,"Helvetica Neue",Arial,sans-serif; }
-        main { width:min(720px,100%); margin:auto; padding:32px 24px 64px; }
-        header { padding-bottom:20px; border-bottom:1px solid #333; }
-        h1 { margin:0; font-size:26px; } h1 span { color:var(--green); }
-        h2 { margin:28px 0 8px; font-size:18px; }
-        p,li { color:var(--muted); } strong { color:var(--text); }
-        nav { margin:24px 0; padding:16px; border-radius:8px; background:var(--surface); }
-        nav a { color:var(--muted); margin-right:12px; display:inline-block; margin-bottom:6px; } nav a:hover { color:var(--green); }
-        code { color:var(--green); }
+        :root {
+            color-scheme: dark;
+            --bg-base: #121212;
+            --bg-surface: #181818;
+            --bg-mid: #1f1f1f;
+            --bg-elevated: #252525;
+            --text-base: #ffffff;
+            --text-silver: #b3b3b3;
+            --text-muted: #7a7a7a;
+            --green: #1ed760;
+            --gold: #ffa42b;
+            --blue: #539df5;
+            --border: #333;
+            --radius: 10px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: Outfit, "Helvetica Neue", Helvetica, Arial, sans-serif;
+            background: var(--bg-base);
+            color: var(--text-base);
+            line-height: 1.55;
+            font-size: 14px;
+        }
+        .wrap { max-width: 720px; margin: 0 auto; padding: 28px 24px 64px; }
+        .hero { margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+        .hero-brand { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+        .hero-brand h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+        .brand-dot { color: var(--green); }
+        .version { font-size: 12px; color: var(--text-muted); }
+        .hero p { margin-top: 8px; color: var(--text-silver); font-size: 13px; max-width: 48em; }
+        nav.toc { background: var(--bg-surface); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 28px; }
+        nav.toc h2 { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+        nav.toc ol { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+        nav.toc a { color: var(--text-silver); text-decoration: none; font-size: 13px; }
+        nav.toc a:hover { color: var(--green); }
+        section { margin-bottom: 28px; }
+        section h2 { font-size: 17px; font-weight: 700; margin-bottom: 10px; }
+        section h3 { font-size: 14px; font-weight: 600; margin: 14px 0 6px; color: var(--text-silver); }
+        section p, section li { color: var(--text-silver); font-size: 13px; }
+        section ul, section ol { padding-left: 1.25em; margin: 6px 0 10px; }
+        section li { margin-bottom: 4px; }
+        section strong { color: var(--text-base); font-weight: 600; }
+        code { font-family: ui-monospace, Consolas, "SF Mono", monospace; font-size: 12px; background: var(--bg-elevated); padding: 1px 6px; border-radius: 4px; color: #e8e8e8; }
+        kbd { font-family: ui-monospace, Consolas, monospace; font-size: 11px; background: var(--bg-mid); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; color: var(--text-base); }
+        a { color: var(--blue); }
+        .note { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: rgba(83,157,245,.08); border: 1px solid rgba(83,157,245,.28); color: var(--text-silver); font-size: 12px; }
+        .note.warn { background: rgba(255,164,43,.08); border-color: rgba(255,164,43,.35); }
+        figure.shot { margin: 12px 0 16px; }
+        figure.shot img { width: 100%; border-radius: 8px; border: 1px solid var(--border); display: block; }
+        figure.shot figcaption { margin-top: 6px; font-size: 12px; color: var(--text-muted); line-height: 1.45; }
+        .foot { margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 12px; }
+        @media (max-width: 560px) { nav.toc ol { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
-<main>
-    <header>
-        <h1><span>●</span> myWall <small>v4.1</small></h1>
-        <p>Visual disc library: browse the wall, search metadata, upload spine photos, confirm TMDb matches, and adjust placement.</p>
-    </header>
-    <nav>
-        <a href="#browse">Browse</a>
-        <a href="#search">Search</a>
-        <a href="#upload">Upload &amp; Scan</a>
-        <a href="#edit">Edit discs</a>
-        <a href="#placement">Placement</a>
-        <a href="#spine">Spine boxes</a>
-        <a href="#language">Language</a>
-    </nav>
-    <section id="browse">
-        <h2>Browse your library</h2>
-        <p>Use <strong>List</strong> for a compact catalog or <strong>Folders</strong> to group discs by source photo. Select a card to open details. The pin locates a disc on the wall when position data exists. Drag the sidebar or detail panel handles to peek at the wall behind panels.</p>
-    </section>
-    <section id="search">
-        <h2>Search and filters</h2>
-        <p>Search matches titles, directors, and cast. Filter by genre, year, or preference. Open the genre-cloud icon for a visual hot-word filter — click a word to filter; drag words to rearrange.</p>
-    </section>
-    <section id="upload">
-        <h2>Upload &amp; Scan</h2>
-        <p>Unlock editing, expand <strong>Tools</strong>, then choose <strong>Upload &amp; Scan</strong>. Drop spine close-up photos (JPG/PNG/WebP). Existing photos can be re-analyzed or sent through Stage2 after spine boxes are saved.</p>
-        <ul>
-            <li><strong>Analyze</strong> — vision/OCR reads spine text.</li>
-            <li><strong>Match</strong> — pick TMDb candidates; reject bad hits; calibrate spine or search manually.</li>
-            <li><strong>Placement</strong> — drag photo boxes on the wall background (optional).</li>
-        </ul>
-    </section>
-    <section id="edit">
-        <h2>Read-only, manual cards, and editing</h2>
-        <p>myWall starts read-only. Click the lock next to the version to enable editing. <strong>Add Disc</strong> creates a card without Stage2. <strong>Edit</strong> opens title/year/TMDb fields with optional source-photo spine preview. <strong>Complete Posters</strong> fills missing posters from existing TMDb IDs without changing titles or boxes.</p>
-    </section>
-    <section id="placement">
-        <h2>Wall placement</h2>
-        <p>After batch upload, mark each close-up’s position on the wall. In folder view, click a group thumbnail to adjust a single close-up (<strong>Adjust close-up on wall</strong>). Saved placement updates disc markers on the main wall.</p>
-    </section>
-    <section id="spine">
-        <h2>Spine boxes</h2>
-        <p>Stage2 and visual compare need accurate spine regions. In upload or image management, select one photo and open <strong>Edit spine boxes</strong>. Drag boxes on the source image, then save to the server. Keyboard shortcuts: A add, C copy, Delete remove, S save.</p>
-    </section>
-    <section id="language">
-        <h2>Language</h2>
-        <p>Choose <strong>English</strong> or <strong>简体中文</strong> from the Language menu. UI strings reload immediately; open modals refresh on switch. Preference is stored in <code>localStorage</code> (<code>mywall.uiLocale</code>).</p>
-    </section>
-</main>
+    <div class="wrap">
+        <header class="hero">
+            <div class="hero-brand">
+                <h1><span class="brand-dot">●</span>myWall User Manual</h1>
+                <span class="version">UI v4.1 · i18n branch</span>
+            </div>
+            <p>A practical guide to the personal DVD/Blu-ray wall: upload close-up photos, identify and catalog spines, browse metadata, and locate a physical disc with the wall AR overlay.</p>
+            <p class="note">This manual describes the experimental <code>i18n</code> branch, whose default interface and content locale are English. The stable <code>main</code> branch remains a separate Chinese-only release.</p>
+        </header>
+
+        <nav class="toc" aria-label="Table of contents">
+            <h2>Contents</h2>
+            <ol>
+                <li><a href="#overview">1. Interface overview</a></li>
+                <li><a href="#manual-path">Manual-first workflow</a></li>
+                <li><a href="#vision-setup">Optional vision setup</a></li>
+                <li><a href="#shots">Screenshots</a></li>
+                <li><a href="#panels">2. Dragging panels</a></li>
+                <li><a href="#views">3. List / folder views</a></li>
+                <li><a href="#search">4. Search and filters</a></li>
+                <li><a href="#detail">5. Details and AR location</a></li>
+                <li><a href="#edit">6. Edit / add / API keys</a></li>
+                <li><a href="#placement">7. Wall placement</a></li>
+                <li><a href="#upload">8. Upload and recognition</a></li>
+                <li><a href="#manage">9. Image management</a></li>
+                <li><a href="#spine">10. Spine boxes</a></li>
+                <li><a href="#cards">11. Card actions and preference</a></li>
+                <li><a href="#deps">12. Services and local data</a></li>
+                <li><a href="#language">13. Language switching</a></li>
+                <li><a href="#conventions">14. Known conventions</a></li>
+            </ol>
+        </nav>
+
+        <section id="overview">
+            <h2>1. Interface overview</h2>
+            <ul>
+                <li><strong>Panoramic wall:</strong> the central background. Disc markers, location rings, and translucent close-up overlays are drawn over it. The brightness control above the bottom Tools tray changes only the wall photo (about 30%–100%, default <strong>50%</strong>), not markers; the browser remembers the value.</li>
+                <li><strong>Left sidebar:</strong> title and version, edit lock, list/folder switch, search, filters, disc cards, manual button, and flag-based language control. The bottom <strong>Tools</strong> bar slides up to show Upload &amp; Scan, Add Disc, Image Management, and Complete Posters.</li>
+                <li><strong>Right detail panel:</strong> appears after selecting a disc and shows its poster, metadata, synopsis, source-photo location, AR location controls, and edit action.</li>
+            </ul>
+            <p>Open this manual with the book icon. In English UI it loads <code>/static/docs/manual.en.html</code>; Chinese UI loads <code>/static/docs/manual.html</code>. The “Open in new tab” link follows the same rule.</p>
+
+            <h3>Read-only and editable modes</h3>
+            <p>The outline lock beside <code>v4.1</code> controls all write operations:</p>
+            <ul>
+                <li><strong>Locked (default):</strong> browse, search, filter, inspect details, use AR location, adjust wall brightness, zoom, and move panels. Write controls report read-only mode.</li>
+                <li><strong>Unlocked (green):</strong> edit or delete discs, add cards, upload and recognize, run Stage2, complete posters, change preference or recognition flags, edit boxes, and place close-ups.</li>
+            </ul>
+            <p>The desktop state is stored as <code>mywall-edit-unlocked</code> in <code>localStorage</code> and applies immediately. Mobile layouts are always read-only, ignore a desktop unlock state, and hide the lock.</p>
+
+            <h3>Phone layout</h3>
+            <p>The wall is pinned above the scrolling catalog. Hold the short handle at the top of the sidebar sheet and swipe up to hide the wall for card browsing; swipe down to reveal it for AR. Normal vertical scrolling in the list remains available.</p>
+        </section>
+
+        <section id="manual-path">
+            <h2>Complete manual-first workflow (no vision model required)</h2>
+            <p>Automatic analysis and Stage2 require a reachable local vision model. They are optional: the following workflow can build a complete wall using manual cards plus TMDb, OMDb, or TVDB metadata.</p>
+            <ol>
+                <li>Unlock editing on a desktop browser.</li>
+                <li>Open <strong>Tools → Upload &amp; Scan</strong> and upload a spine close-up or panorama. Analysis may be skipped.</li>
+                <li>Open the spine-box editor and draw, resize, add, or remove boxes to match the physical spines.</li>
+                <li>Run Stage2 only if LM Studio is available; otherwise continue manually.</li>
+                <li>Choose <strong>Tools → Add Disc</strong>. Enter at least an English or Chinese title and optionally associate the uploaded image.</li>
+                <li>Choose media type and source, search TMDb / IMDb (through OMDb) / TVDB, then select a candidate. Never invent a <code>tmdb_id</code>.</li>
+                <li>With a valid TMDb ID, use <strong>Refresh from TMDb</strong> or <strong>Complete Posters</strong> to fill missing artwork.</li>
+                <li>Place the close-up on the panoramic wall. A positioned disc can then be found with the AR overlay.</li>
+                <li>Use the same Flask address on a phone for read-only wall, list, details, and location viewing.</li>
+            </ol>
+            <p class="note">API keys are maintained in the collapsed API Key section of the Edit Disc / Add Disc dialog. They are masked in the UI and saved only to local <code>data/api_keys.json</code>.</p>
+        </section>
+
+        <section id="vision-setup">
+            <h2>Build or deploy the optional Stage2 vision service</h2>
+            <p>Recognition uses a local or LAN <strong>LM Studio OpenAI-compatible</strong> endpoint at <code>/v1/chat/completions</code>, not a hosted vision API.</p>
+            <ol>
+                <li>Install <a href="https://lmstudio.ai/" target="_blank" rel="noopener">LM Studio</a>.</li>
+                <li>Download and load a vision model. The configured default is <code>zai-org/glm-4.6v-flash</code>; use <code>VISION_MODEL</code> to select another loaded model or <code>VISION_MODEL_AUTO=1</code> to use the preference list.</li>
+                <li>Start LM Studio Local Server, commonly on port <code>1234</code>.</li>
+                <li>Set <code>LMSTUDIO_BASE</code> in the environment or <code>config.py</code> (default <code>http://127.0.0.1:1234</code>). Use the server computer’s LAN address when Flask runs elsewhere.</li>
+                <li>Confirm the Flask host can reach that endpoint through routing and firewall rules.</li>
+                <li>Outbound metadata APIs may use <code>HTTP_PROXY</code>/<code>HTTPS_PROXY</code>. If a system tunnel intercepts LAN traffic, bypass the local subnet so LM Studio stays reachable.</li>
+            </ol>
+            <p class="note warn">If no model is available, Analyze and Stage2 will fail. Use the manual-first workflow; recognition is not required to catalog a collection.</p>
+        </section>
+
+        <section id="shots">
+            <h2>Interface screenshots</h2>
+            <p>The first image contains the author’s real home and collection wall. It documents this private installation only; do not reuse the private wall photo when demonstrating a fork.</p>
+            <figure class="shot">
+                <img src="/docs/screenshots/01-desktop-home.png" alt="Desktop home showing the catalog, wall AR overlay, and details">
+                <figcaption>Desktop home: catalog on the left, a translucent close-up aligned on the collection wall, and disc details on the right.</figcaption>
+            </figure>
+            <figure class="shot">
+                <img src="/docs/screenshots/02-edit-api-keys.png" alt="Masked API keys and source toggles in Edit Disc">
+                <figcaption>Edit Disc: TMDb, OMDb (IMDb), and TVDB keys reveal only their final four characters; each source can be enabled independently.</figcaption>
+            </figure>
+            <figure class="shot">
+                <img src="/docs/screenshots/03-functions-tray.png" alt="Tools tray with four primary actions">
+                <figcaption>The Tools tray: Upload &amp; Scan, Add Disc, Image Management, and Complete Posters.</figcaption>
+            </figure>
+            <figure class="shot">
+                <img src="/docs/screenshots/04-genre-cloud.png" alt="Hot Words genre cloud weighted by disc count">
+                <figcaption>Hot Words: genre size reflects library count; select a word to apply that genre filter.</figcaption>
+            </figure>
+        </section>
+
+        <section id="panels">
+            <h2>2. Dragging the sidebar and detail panel</h2>
+            <p>The gray handle at the top of each desktop panel lets you uncover the wall:</p>
+            <ul>
+                <li><strong>Drag sidebar:</strong> move the left panel horizontally.</li>
+                <li><strong>Drag panel:</strong> move the open right detail panel horizontally.</li>
+                <li><strong>Double-click:</strong> reset that panel’s offset to zero.</li>
+                <li><strong>Keyboard:</strong> focus a handle and press <kbd>←</kbd>/<kbd>→</kbd>; hold <kbd>Shift</kbd> for larger steps.</li>
+            </ul>
+            <p>Offsets are stored in the browser and restored on the next visit.</p>
+        </section>
+
+        <section id="views">
+            <h2>3. List and folder views</h2>
+            <h3>List view</h3>
+            <p>Shows every disc as a flat card. The primary line follows the selected content locale and falls back to available title fields; the secondary line avoids repeating the same title. Select a card to open details. The preference heart sits under the year, and the compact right column contains Locate, Edit, recognition flag, and Delete. In read-only mode only Locate remains active.</p>
+            <h3>Folder view</h3>
+            <p>Groups cards by source close-up (<code>source_image</code>). Select a group header to expand or collapse it. When editing is unlocked, select the group thumbnail to adjust that close-up’s placement on the wall. Cards inside a group behave exactly like list cards.</p>
+        </section>
+
+        <section id="search">
+            <h2>4. Search, filters, and Hot Words</h2>
+            <ol>
+                <li>Enter a title, synopsis, director, or cast term. Search is debounced; <kbd>Enter</kbd> or the search button also submits. Person-name matching normalizes spaces, common hyphens, and CJK middle-dot variants.</li>
+                <li>Combine the text query with <strong>Genre</strong>, <strong>Year</strong>, and <strong>Preference</strong>. Genre matching understands normalized English/Chinese aliases without rewriting stored source labels.</li>
+                <li>Preference options are All, green, blue, orange, and unmarked, corresponding to stored values all / 1 / 2 / 3 / 0.</li>
+                <li>The result counter reports the current number of matching discs.</li>
+            </ol>
+            <h3>Hot Words genre cloud</h3>
+            <p>On desktop, select the cloud icon at the end of the filter row. Word size is based on the full-library genre count, not the current filtered list. Select a word to filter; drag beyond the movement threshold to reposition it. Nearby words react without overlap, and the cluster settles back toward a heat-weighted center. The stable layout does not repack when a disc is selected or a filter highlight changes.</p>
+            <p>The panel can be resized from its edges and corners; size is remembered locally. It repacks after first open, a completed resize, or a meaningful width change. Close it with its close control, <kbd>Esc</kbd>, or a click outside. The entry is hidden on narrow/mobile layouts.</p>
+            <figure class="shot">
+                <img src="/docs/screenshots/04-genre-cloud.png" alt="Hot Words genre cloud weighted by library frequency">
+                <figcaption>Hot Words uses fixed library-wide weights, collision-aware packing, and click-to-filter interaction.</figcaption>
+            </figure>
+        </section>
+
+        <section id="detail">
+            <h2>5. Disc details, source position, and wall AR</h2>
+            <h3>Open details</h3>
+            <p>Select a card in either view. The right panel shows poster, year, rating, genres, synopsis, directors, and cast when those fields exist.</p>
+            <h3>Position in the source photo</h3>
+            <ul>
+                <li>A disc with a source image shows its original thumbnail and highlighted spine box.</li>
+                <li>Select the source image for a full-screen translucent AR Zoom view.</li>
+                <li><strong>Reselect box</strong> lets an unlocked desktop user draw the region again and update or re-recognize it.</li>
+            </ul>
+            <h3>Locate on the physical wall</h3>
+            <ol>
+                <li>Select <strong>Locate</strong> in details or use the locate icon on a card.</li>
+                <li>The panorama shows a spreading ring and title bubble. If its source close-up has placement data, that region also appears as a translucent aligned overlay.</li>
+                <li>If wall coordinates are absent, myWall reports that the position has not been marked.</li>
+            </ol>
+            <p>The locate icon distinguishes a disc with a calibrated source-photo box from one whose original-photo position is unknown.</p>
+        </section>
+
+        <section id="edit">
+            <h2>6. Edit discs, add cards, metadata search, and API keys</h2>
+            <h3>A. Edit an existing disc</h3>
+            <ol>
+                <li>Unlock editing, then select the pencil icon or <strong>Edit</strong> in details.</li>
+                <li>The source comparison area shows the close-up and current spine box. Zoom with the wheel or ± controls, pan by dragging, and use <strong>Locate spine</strong> to zoom to the text. If no box exists, the full image remains visible and the dialog directs you to Reselect box.</li>
+                <li>Edit English/Chinese titles, release year, optional TMDb / IMDb / TVDB IDs, and the associated source image.</li>
+                <li>Choose media type (All / Movie / Series) and source (All / TMDb / IMDb / TVDB), then run one title search. Enabled and configured sources are queried in parallel; same-title, same-year candidates from different services remain separate.</li>
+                <li>Select a candidate to fill the best available title, year, poster, and source ID. TMDb results set <code>tmdb_id</code> and media type; OMDb/TVDB results set <code>imdb_id</code>/<code>tvdb_id</code> without fabricating a TMDb ID.</li>
+                <li><strong>Refresh from TMDb</strong> uses an existing TMDb ID to fill artwork and metadata while preserving dialog title/year and all box coordinates. Without an ID, it starts with search.</li>
+                <li><strong>Save</strong> updates the record through <code>PUT /api/discs/:id</code>.</li>
+            </ol>
+
+            <h3>B. API keys (desktop only)</h3>
+            <ul>
+                <li>Expand <strong>API Key</strong> in Edit Disc or Add Disc. TMDb, IMDb (OMDb), and TVDB each have a masked value and an enabled switch.</li>
+                <li>A stored key appears like <code>••••abcd</code>; the full value is never returned to the browser. Paste a replacement, save it, or explicitly clear it.</li>
+                <li>Disabled sources send no requests. An enabled source without a key stays visibly unavailable and does not fake search results.</li>
+                <li>Keys are saved to local <code>data/api_keys.json</code>, not the SQLite library and not Git. The UI refreshes source availability immediately.</li>
+            </ul>
+
+            <h3>C. Add Disc (manual card, no Stage2)</h3>
+            <ol>
+                <li>Open <strong>Tools → Add Disc</strong>; it uses the same dialog as editing.</li>
+                <li>Enter at least one English or Chinese title. Year and external IDs are optional.</li>
+                <li>Optionally associate an existing close-up or panorama. A card can be created with no <code>source_image</code> and boxed later.</li>
+                <li>Use the same type/source search and candidate selection flow, or enter trusted IDs directly.</li>
+                <li><strong>Save</strong> creates the record through <code>POST /api/discs</code>, refreshes the list, and opens its details.</li>
+            </ol>
+
+            <h3>D. Complete Posters</h3>
+            <p><strong>Tools → Complete Posters</strong> fills missing posters in bulk from existing <code>tmdb_id</code> and <code>tmdb_media_type</code> values. It does not change titles, source boxes, or wall coordinates. A reachable TMDb service and configured key are required.</p>
+        </section>
+
+        <section id="placement">
+            <h2>7. Place close-up photos on the wall</h2>
+            <ol>
+                <li>Switch to <strong>Folder</strong> view and unlock editing.</li>
+                <li>Select the thumbnail at the left of a source-image group.</li>
+                <li>The tray lists all close-ups. Select or drag one onto the wall to start editing it.</li>
+                <li>Drag inside the frame to move it and use corner handles to resize it. Switch among tray images to calibrate several close-ups in one session.</li>
+                <li>Keep “recalculate discs from <code>photo_offset</code> after saving” enabled when all disc markers under that image should follow the new transform.</li>
+                <li>Select <strong>Save position</strong>, or cancel/close the overlay without saving.</li>
+            </ol>
+            <p class="note">Upload step 4 also supports batch placement with drag, lower-right resize, and wheel controls. Stage2 may import discs before <code>width_ratio</code>/<code>height_ratio</code> is calibrated; their wall coordinates can be recalculated later.</p>
+        </section>
+
+        <section id="upload">
+            <h2>8. Upload and recognition workflow</h2>
+            <p>Unlock editing and choose <strong>Tools → Upload &amp; Scan</strong>. The uploaded-photo list supports both the classic batch path and the higher-accuracy manual-box → Stage2 path.</p>
+
+            <h3>A. Classic four-step batch analysis</h3>
+            <ol>
+                <li><strong>Upload:</strong> drag or choose one or more JPG, PNG, or WebP close-ups. Existing photos can be selected for deletion or re-analysis.</li>
+                <li><strong>Analyze:</strong> the backend runs OCR/vision in batches and reports progress.</li>
+                <li><strong>Match:</strong> review metadata candidates, change a match, search manually, calibrate the spine, or visually verify it. Finish with <strong>Confirm all matches and save</strong>.</li>
+                <li><strong>Placement:</strong> place this batch of photo frames over the panoramic wall, then save or skip.</li>
+            </ol>
+
+            <h3>B. Manual spine boxes → Stage2 (recommended for accuracy)</h3>
+            <ol>
+                <li>In Uploaded Photos, select one image or use the outline crop icon on its thumbnail.</li>
+                <li>Choose <strong>Edit spine boxes</strong> (exactly one image must be selected) to open the embedded editor.</li>
+                <li>Start from an empty canvas by dragging a box or choosing Add box, or refine existing boxes. Save to the server with the button or <kbd>S</kbd>; the thumbnail badge reports the saved box count.</li>
+                <li>Select one or more photos that already have boxes, then choose <strong>Stage2 Recognition</strong>.</li>
+                <li>The background job reads each cropped title, matches metadata, and writes discs. By default it replaces older discs associated with that same image. Progress appears in the analysis area.</li>
+            </ol>
+            <p class="note">Stage2 requires reachable LM Studio and TMDb services. It cannot start for an image with no saved boxes.</p>
+            <p class="note warn">Closing the upload dialog may discard visible progress tracking; confirm the warning before leaving a running job.</p>
+        </section>
+
+        <section id="manage">
+            <h2>9. Image management</h2>
+            <ol>
+                <li>Unlock, then open <strong>Tools → Image Management</strong>. The grid labels uploaded items as close-up or panorama.</li>
+                <li>For one image, re-run recognition or delete it.</li>
+                <li>Select multiple images for batch re-recognition or deletion; Select all is available.</li>
+            </ol>
+            <p class="note">Spine boxes are stored under <code>data/spine_boxes/</code> by <code>wall_image.id</code>; Stage2 output is under <code>data/spine_results/</code>. Deleting an uploaded image primarily removes the database/uploaded asset, so an orphaned box JSON may require manual cleanup.</p>
+        </section>
+
+        <section id="spine">
+            <h2>10. Spine-box tools</h2>
+            <h3>In the main application</h3>
+            <ul>
+                <li><strong>Upload list:</strong> Edit spine boxes or the thumbnail crop icon opens the embedded editor and saves boxes to the server.</li>
+                <li><strong>Upload matching:</strong> Calibrate spine draws a single-disc box over the source image; use the wheel to zoom and right/middle drag to pan.</li>
+                <li><strong>Details:</strong> Reselect box uses the online editor to correct source position and optionally re-recognize that region.</li>
+            </ul>
+            <h3>Standalone offline editor</h3>
+            <p>Open <code>/static/spine_boxes_editor.html</code> to correct stage1 <code>spine_boxes_*.json</code>:</p>
+            <ol>
+                <li>Load the original image and stage1 JSON.</li>
+                <li>Move/resize boxes, drag on empty space or use Add box for missed spines, and copy/delete as needed.</li>
+                <li>Export <code>spine_boxes_*_edited.json</code> for offline Stage2/import.</li>
+            </ol>
+            <p>The embedded and offline modes share editing behavior; embedded mode adds direct server save and does not require local file selection.</p>
+            <h3>Offline script relationship</h3>
+            <ul>
+                <li>Web Stage2 roughly combines <code>scripts/recognize_spines_with_tmdb.py</code> and <code>scripts/import_spines_to_db.py</code>.</li>
+                <li><code>scripts/generate_spine_boxes.py</code> remains the offline stage1 detector. The web flow may instead start with manually drawn empty boxes.</li>
+                <li><code>scripts/_batch_stage2.py</code> provides a command-line batch example.</li>
+            </ul>
+        </section>
+
+        <section id="cards">
+            <h2>11. Card actions, preference, and keyboard behavior</h2>
+            <ul>
+                <li><strong>Preference heart:</strong> outline means unmarked; solid green, blue, or orange are three preference levels. Hover to slide out the color strip, select a color, select the active color again, or choose the outline to clear it. Leaving without selecting makes no change.</li>
+                <li><strong>Action column:</strong> Locate, Edit, recognition flag, and Delete are compact outline icons. Color indicates state (for example positioned green, flagged orange, Delete hover red).</li>
+                <li><strong>Recognition flag:</strong> marks or clears a suspected recognition error; the wall marker also receives a warning style.</li>
+                <li><strong>Delete:</strong> removes the disc after a double confirmation.</li>
+                <li>While unlocked, hold <kbd>Shift</kbd> and drag a disc marker on the wall to update its coordinates.</li>
+                <li>Select blank wall space to close the detail panel.</li>
+                <li><kbd>Esc</kbd> closes the topmost AR zoom, box editor, manual, placement dialog, detail, or management overlay.</li>
+            </ul>
+            <p>Preference, flags, deletion, editing, and marker dragging are disabled in read-only mode.</p>
+        </section>
+
+        <section id="deps">
+            <h2>12. Services, API configuration, and local data</h2>
+            <h3>Flask service</h3>
+            <ul>
+                <li>Start from the project root with <code>python app.py</code> or an equivalent Flask launcher.</li>
+                <li>The default listener is <code>0.0.0.0:5000</code>; browse locally at <code>http://127.0.0.1:5000</code>.</li>
+                <li>Routes include <code>/static/…</code>, <code>/uploads/…</code>, <code>/photos/…</code>, and <code>/docs/screenshots/…</code>.</li>
+            </ul>
+            <h3>API-key precedence and safety</h3>
+            <ul>
+                <li>The preferred desktop UI stores TMDb, OMDb, and TVDB settings in ignored <code>data/api_keys.json</code>. Flask reads updates without restart.</li>
+                <li><code>GET /api/settings/keys</code> returns only masks and enabled state; <code>PUT</code> updates one source.</li>
+                <li>Resolution order is an explicit JSON <code>api_key</code> (including empty for cleared), then environment variables, then <code>config.py</code>.</li>
+                <li><strong>Never put a real key in this manual or commit one to the repository.</strong></li>
+            </ul>
+            <h3>Metadata providers</h3>
+            <ul>
+                <li><strong>TMDb:</strong> title search, details, genres, credits, and posters. Configure <code>TMDB_API_KEY</code>/<code>TMDB_ACCESS_TOKEN</code> or the UI. Apply at <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a>.</li>
+                <li><strong>OMDb:</strong> legitimate IMDb-linked search and posters; writes optional <code>imdb_id</code>. Configure <code>OMDB_API_KEY</code>. Apply at <a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noopener">omdbapi.com/apikey.aspx</a>.</li>
+                <li><strong>TheTVDB v4:</strong> series/movie search, optional <code>tvdb_id</code>, and posters when available. Configure <code>TVDB_API_KEY</code> or <code>THETVDB_API_KEY</code>. See <a href="https://thetvdb.com/api-information" target="_blank" rel="noopener">thetvdb.com/api-information</a>.</li>
+            </ul>
+            <h3>Proxy and local vision</h3>
+            <ul>
+                <li>Metadata clients read <code>HTTP_PROXY</code>/<code>HTTPS_PROXY</code> (including lowercase forms) and can fall back to <code>config.TMDB_HTTP_PROXY</code>.</li>
+                <li>LM Studio defaults to <code>http://127.0.0.1:1234</code>. Analyze, Stage2, and region recognition depend on its OpenAI-compatible endpoint.</li>
+                <li>A proxy should carry outbound metadata traffic without intercepting the local/LAN LM Studio endpoint.</li>
+            </ul>
+            <h3>Local files</h3>
+            <ul>
+                <li>Library: <code>data/mywall.db</code>.</li>
+                <li>Local API settings: <code>data/api_keys.json</code> (ignored by Git).</li>
+                <li>Uploaded assets: <code>uploads/</code>; wall/source photos: <code>photos/</code>.</li>
+                <li>Boxes: <code>data/spine_boxes/{wall_image_id}.json</code>; Stage2 results: <code>data/spine_results/{id}.json</code>.</li>
+                <li>Application log: <code>app.log</code>.</li>
+            </ul>
+        </section>
+
+        <section id="language">
+            <h2>13. Language switching and content locale</h2>
+            <ul>
+                <li>The <code>i18n</code> branch defaults both <strong>UI locale</strong> and <strong>content locale</strong> to English.</li>
+                <li>Use the circular flag at the top right of the sidebar: 🇺🇸 English, 🇨🇳 Simplified Chinese, 🇯🇵 Japanese, or 🇰🇷 Korean. The current flag is also the menu trigger.</li>
+                <li>The flag switch currently changes <strong>UI locale</strong>—buttons, labels, dialogs, messages, and which manual opens—and stores it as <code>mywall.uiLocale</code>.</li>
+                <li><strong>Content locale</strong> controls preferred titles, synopses, people, and genre labels and is stored separately as <code>mywall.contentLocale</code>. Switching the flag does not overwrite it.</li>
+                <li>Supported locale codes are <code>en | zh | ja | ko</code>. Missing UI keys fall back to English, then the key name. Missing content falls back to English, then original/legacy fields.</li>
+            </ul>
+            <p class="note warn">English and Simplified Chinese UI dictionaries are implemented. Japanese and Korean flags/locales can be selected and remembered, but their dictionaries are currently empty and therefore display the English fallback. Do not interpret the flags as completed Japanese/Korean UI or four-language content coverage.</p>
+        </section>
+
+        <section id="conventions">
+            <h2>14. Known conventions and operational notes</h2>
+            <ul>
+                <li><code>main</code> and <code>i18n</code> are intentionally independent. Starting or testing one branch does not update the other.</li>
+                <li>The i18n default is English. Legacy English/Chinese database fields remain readable while localized JSON fields are introduced; missing translations are expected to fall back.</li>
+                <li>A metadata result from IMDb/OMDb or TVDB must not be stored as a fabricated TMDb ID.</li>
+                <li>Image placement and a disc’s spine box are separate calibrations: the box locates the disc inside a close-up; placement maps that close-up onto the panorama.</li>
+                <li>Mobile is a deliberate read-only viewer. Perform library maintenance on desktop.</li>
+                <li>When Flask runs with <code>DEBUG=False</code>, restart it after changing Python routes or backend code. Static manual changes may still require a reload because of browser caching.</li>
+                <li>Keep databases, uploaded photos, recognition output, and credentials local and out of commits.</li>
+            </ul>
+        </section>
+
+        <p class="foot">myWall User Manual · UI v4.1 i18n · <code>static/docs/manual.en.html</code></p>
+    </div>
 </body>
 </html>
