@@ -967,8 +967,8 @@ body:not(.readonly) .edit-mode-toggle:focus-visible {
 }
 
 .filter-row select:focus-visible {
-    outline: 2px solid var(--spotify-green);
-    outline-offset: 2px;
+    outline: 1px solid rgba(179, 179, 179, 0.45);
+    outline-offset: 1px;
 }
 
 .filter-row select:disabled {
