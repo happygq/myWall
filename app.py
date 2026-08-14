@@ -1,4 +1,4 @@
-"""myWall - 光碟墙管理系统 主应用 v4.0
+"""myWall - 光碟墙管理系统 主应用 v4.1
 核心改进：
 - 异步处理：上传立即返回，OCR+视觉模型后台运行
 - 双通道识别：EasyOCR 文本 + 视觉模型图像理解
@@ -24,6 +24,7 @@
 - v3.13：片名搜索合并 TMDb + OMDb(IMDb) + TheTVDB；imdb_id / tvdb_id；来源 badge
 - v3.15：编辑碟片弹窗维护本机 API Key（TMDb / OMDb / TVDB），热读无需重启
 - v4.0：定稿发布；统一页面/手册/后端版本号；API key 仅从环境变量或 data/api_keys.json 读取
+- v4.1：碟片搜索覆盖导演/主演（含 name_en）；演职入库写入 original_name
 """
 import os
 import uuid
@@ -77,7 +78,7 @@ if _ROOT not in sys.path:
 from scripts.recognize_spines_with_tmdb import recognize_spines  # noqa: E402
 from scripts.import_spines_to_db import import_spine_results  # noqa: E402
 
-APP_VERSION = "4.0"
+APP_VERSION = "4.1"
 
 # 仅补全 TMDb 元数据时允许写入的字段（禁止片名 / 年份 / 框 / 墙坐标）
 _TMDB_ENRICH_KEYS = (

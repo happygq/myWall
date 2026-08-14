@@ -231,15 +231,50 @@ def get_discs_by_source_image(filename):
     return [_format_disc(r) for r in rows]
 
 
+_KEYWORD_COLUMNS = (
+    "title_cn", "title_en", "synopsis_cn", "synopsis_en", "directors", '"cast"',
+)
+
+# 中文译名间隔号（·・•‧．）、拉丁缩写点、空格与连字符：库内写法与用户输入常不一致
+_SEARCH_SEPARATORS = (
+    "\u00b7", "\u30fb", "\u2022", "\u2027", "\uff0e", ".",
+    " ", "\u3000", "-", "\u2010", "\u2013",
+)
+
+
+def _strip_search_separators(text):
+    for ch in _SEARCH_SEPARATORS:
+        text = text.replace(ch, "")
+    return text
+
+
+def _sql_strip_search_separators(column):
+    expr = column
+    for ch in _SEARCH_SEPARATORS:
+        expr = f"REPLACE({expr}, '{ch}', '')"
+    return expr
+
+
 def search_discs(keyword=None, genre=None, year=None, confirmed=None, preference=None):
     """搜索碟片。preference: 0=未标注, 1/2/3=三档喜好；None=不限。"""
     conn = get_db()
     sql = "SELECT * FROM discs WHERE 1=1"
     params = []
     if keyword:
-        sql += " AND (title_cn LIKE ? OR title_en LIKE ? OR synopsis_cn LIKE ?)"
-        kw = f"%{keyword}%"
-        params.extend([kw, kw, kw])
+        # 片名 / 简介 / 导演 / 主演（cast·directors 为 JSON 文本，LIKE 可命中 name / name_en）
+        # 关键词与字段两侧都去掉间隔符再比：库里是「朱莉娅·罗伯茨」，
+        # 用户常连写「朱莉娅罗伯茨」。两侧同样去字符，去点结果是原始 LIKE 的超集。
+        kw_norm = _strip_search_separators(keyword)
+        if kw_norm:
+            conditions = " OR ".join(
+                f"{_sql_strip_search_separators(col)} LIKE ?" for col in _KEYWORD_COLUMNS
+            )
+            params.extend([f"%{kw_norm}%"] * len(_KEYWORD_COLUMNS))
+        else:
+            # 关键词只由间隔符组成，归一后为空，退回原样匹配，避免命中全部
+            conditions = " OR ".join(f"{col} LIKE ?" for col in _KEYWORD_COLUMNS)
+            params.extend([f"%{keyword}%"] * len(_KEYWORD_COLUMNS))
+        sql += f" AND ({conditions})"
     if year:
         sql += " AND year = ?"
         params.append(year)

@@ -679,10 +679,15 @@ class TMDBClient:
         return {"directors": directors, "cast": cast}
 
     def _format_person(self, person):
+        name = (person.get("name") or "").strip()
+        original = (person.get("original_name") or "").strip()
+        # zh-CN 时 name 多为译名，original_name 多为拉丁文名；相同时不重复存
+        name_en = original if original and original != name else ""
         return {
             "id": person.get("id"),
-            "name": person.get("name", ""),
-            "character": person.get("character", ""),
+            "name": name,
+            "name_en": name_en,
+            "character": person.get("character", "") or "",
             "profile_url": self.get_image_url(person.get("profile_path"), "w185") if person.get("profile_path") else None,
         }
 

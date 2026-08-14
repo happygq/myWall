@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>myWall v4.0 — 我的光碟墙</title>
+    <title>myWall v4.1 — 我的光碟墙</title>
     <script>
     (function () {
         function coarse() {
@@ -41,7 +41,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=3.15p">
+    <link rel="stylesheet" href="/static/css/style.css?v=3.16e">
 </head>
 <body class="readonly">
 
@@ -66,7 +66,7 @@
         </div>
         <div class="sidebar-header">
             <div class="sidebar-header-row">
-                <h1><span class="brand-mark">●</span>myWall <span class="version-cluster"><span class="version-tag">v4.0</span><button type="button" class="edit-mode-toggle" id="btn-edit-mode" aria-pressed="false" title="只读模式（点击解锁编辑）" aria-label="只读模式，点击解锁编辑"><svg class="edit-mode-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="11" width="14" height="10.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M8 11V7.25a4 4 0 0 1 8 0V11"/></svg></button></span></h1>
+                <h1><span class="brand-mark">●</span>myWall <span class="version-cluster"><span class="version-tag">v4.1</span><button type="button" class="edit-mode-toggle" id="btn-edit-mode" aria-pressed="false" title="只读模式（点击解锁编辑）" aria-label="只读模式，点击解锁编辑"><svg class="edit-mode-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="11" width="14" height="10.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M8 11V7.25a4 4 0 0 1 8 0V11"/></svg></button></span></h1>
                 <button type="button" class="sidebar-icon-btn" id="btn-manual" title="使用手册" aria-label="使用手册">
                     <svg class="sidebar-icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
@@ -142,9 +142,9 @@
                 </svg>
                 <span class="wall-brightness-text">明暗</span>
             </label>
-            <input type="range" id="wall-brightness-slider" min="30" max="100" value="75" step="1"
-                   aria-valuemin="30" aria-valuemax="100" aria-valuenow="75" aria-label="墙面背景亮度">
-            <span class="wall-brightness-value" id="wall-brightness-value">75%</span>
+            <input type="range" id="wall-brightness-slider" min="30" max="100" value="50" step="1"
+                   aria-valuemin="30" aria-valuemax="100" aria-valuenow="50" aria-label="墙面背景亮度">
+            <span class="wall-brightness-value" id="wall-brightness-value">50%</span>
         </div>
 
         <div class="sidebar-footer" id="sidebar-footer">
@@ -601,7 +601,7 @@
     <!-- 热词筛选 -->
     <div id="genre-cloud-modal" class="modal genre-cloud-layer hidden" role="dialog" aria-modal="false" aria-labelledby="genre-cloud-title">
         <div class="modal-overlay genre-cloud-overlay" id="genre-cloud-overlay"></div>
-        <div class="modal-content modal-genre-cloud">
+        <div class="modal-content modal-genre-cloud" id="modal-genre-cloud-panel">
             <div class="modal-header">
                 <h2 id="genre-cloud-title">
                     <svg class="disc-card-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -619,6 +619,14 @@
             <div class="modal-body genre-cloud-body">
                 <div id="genre-cloud" class="genre-cloud" role="group" aria-label="热词筛选"></div>
             </div>
+            <div class="genre-cloud-resize" data-dir="n" aria-hidden="true"></div>
+            <div class="genre-cloud-resize" data-dir="s" aria-hidden="true"></div>
+            <div class="genre-cloud-resize" data-dir="e" aria-hidden="true"></div>
+            <div class="genre-cloud-resize" data-dir="w" aria-hidden="true"></div>
+            <div class="genre-cloud-resize" data-dir="ne" aria-hidden="true"></div>
+            <div class="genre-cloud-resize" data-dir="nw" aria-hidden="true"></div>
+            <div class="genre-cloud-resize" data-dir="se" aria-hidden="true"></div>
+            <div class="genre-cloud-resize" data-dir="sw" aria-hidden="true"></div>
         </div>
         <div id="genre-cloud-tip" class="genre-cloud-tip" hidden aria-hidden="true"></div>
     </div>
@@ -643,6 +651,6 @@
     <!-- Toast -->
     <div id="toast" class="toast hidden"></div>
 
-    <script src="/static/js/app.js?v=3.15q"></script>
+    <script src="/static/js/app.js?v=3.16f"></script>
 </body>
 </html>

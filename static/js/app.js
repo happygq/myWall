@@ -1,6 +1,7 @@
 /**
- * myWall v3.13 — 多源片名搜索（TMDb / OMDb·IMDb / TVDB）/ 手工建卡 / tmdb_media_type / imdb_id·tvdb_id / 手工编辑 bbox / 编辑窗原图碟脊对照 / 卡片字段 / 标定碟脊 / 区域重识别 / 标记错误 / 双重确认删除 / 针图标原图 bbox 状态 / API 错误脱敏 / 按 tmdb_id 批量补海报
+ * myWall v4.1 — 多源片名搜索（TMDb / OMDb·IMDb / TVDB）/ 手工建卡 / tmdb_media_type / imdb_id·tvdb_id / 手工编辑 bbox / 编辑窗原图碟脊对照 / 卡片字段 / 标定碟脊 / 区域重识别 / 标记错误 / 双重确认删除 / 针图标原图 bbox 状态 / API 错误脱敏 / 按 tmdb_id 批量补海报
  * 树形分组缩略图可调整特写在总布局墙上的 placement（多特写托盘 + 单墙面编辑）
+ * v4.1：搜索栏覆盖导演/主演 JSON（含 name_en）；详情演职中英名并列
  * v3.6：首页 Spotify DESIGN.md 视觉壳（CSS 为主）
  * v3.7：碟片卡片操作改为线描 SVG（深灰圆底，克制强调态）
  * v3.9：卡片个人喜好心形（三色）标注 + 喜好筛选
@@ -30,6 +31,19 @@
  * v3.15o：回退热词图到 3.15l（大面板+标题栏+装箱后非均匀字号）；撤销 3.15m/n
  * v3.15p：热词先定显示字号再密铺（恢复 3.15m 装箱）；保留大面板与标题栏
  * v3.15q：手册/README 增加热词筛选图例；手册同步 3.15p 字号流水线说明
+ * v3.15r：热词力导向（吸引+碰撞）可拖拽；短按筛选、过阈值拖拽，邻居跟动
+ * v3.15s：热词硬边框阻挡（词/拖拽均不能穿出 #genre-cloud 内缘）
+ * v3.15t：热词窗边/角可拖拽改大小（localStorage）；关闭钮半尺寸且悬停/焦点显现
+ * v3.15u：碟片卡片操作列去圆底，与海报同高密排，减少卡片下方空白
+ * v3.15v：修复热词拖拽——删除重复 onGenreCloudPointerMove 覆盖拖拽分支
+ * v3.15w：热词力导向加强中程吸附（更大吸引半径、更强拉力、拖拽时减弱质心回中）
+ * v3.15x：热词大面板填满时最小字号按约 3.7× 对比抬升（勿停在硬底 12px）
+ * v3.15y：热词 rank-aware 向心力（按字号分层的目标半径：大词居中/小词外围）+ 松手后延迟平滑重排回密铺原位
+ * v3.15z：碟片卡片图标变暗（CSS）
+ * v3.16a：热词布局稳定化——收敛后停帧（park）；纯点击筛选不接管力场（不 pin、不重排）；
+ *         ResizeObserver / window resize 仅在词区宽度实质变化时重装箱，高度或微抖动只夹回硬边界
+ * v3.16b：热词词团稳定居中——力场按加速度标定（∝mass）、整团回中弹簧+质心阻尼+运动学平移回中；
+ *         分层力围绕词团质心（不与回中打架）；停帧前要求已居中（PARK_OFFCENTER）
  * 墙面坐标：首页与 placement 编辑共用 wall-coord-layer，百分比相对墙图自然尺寸
  * 素材策略：test3≈test10 只跑一份；墙面只用 test-wall.jpg；识别 test1–13 跳过重复与已完成的 test2
  */
@@ -1453,15 +1467,21 @@ async function showDiscDetail(discId) {
     try {
         const disc = await api(`/discs/${discId}`);
         state.selectedDiscId = discId;
+        const personLabel = (p) => {
+            const cn = (p.name || "").trim();
+            const en = (p.name_en || "").trim();
+            if (cn && en && cn !== en) return `${escapeHtml(cn)} / ${escapeHtml(en)}`;
+            return escapeHtml(cn || en || "");
+        };
         const dirHtml = (disc.directors || []).map(d => `
             <div class="detail-person">
                 ${d.profile_url ? `<img class="detail-person-avatar" src="${d.profile_url}" alt="" loading="lazy">` : ""}
-                <div><div class="detail-person-name">${escapeHtml(d.name)}</div><div class="detail-person-role">导演</div></div>
+                <div><div class="detail-person-name">${personLabel(d)}</div><div class="detail-person-role">导演</div></div>
             </div>`).join("") || '<span style="color:var(--text-muted)">暂无</span>';
         const castHtml = (disc.cast || []).slice(0, 8).map(c => `
             <div class="detail-person">
                 ${c.profile_url ? `<img class="detail-person-avatar" src="${c.profile_url}" alt="" loading="lazy">` : ""}
-                <div><div class="detail-person-name">${escapeHtml(c.name)}</div><div class="detail-person-role">${c.character ? `饰 ${escapeHtml(c.character)}` : "演员"}</div></div>
+                <div><div class="detail-person-name">${personLabel(c)}</div><div class="detail-person-role">${c.character ? `饰 ${escapeHtml(c.character)}` : "演员"}</div></div>
             </div>`).join("") || '<span style="color:var(--text-muted)">暂无</span>';
         const genreHtml = genreLabels(disc).map(g => `<span class="detail-genre">${escapeHtml(g)}</span>`).join("");
 
@@ -1554,7 +1574,7 @@ function closeDetail() {
 
 // ===== 使用手册 =====
 
-const MANUAL_SRC = "/static/docs/manual.html?v=3.15q";
+const MANUAL_SRC = "/static/docs/manual.html?v=3.16f";
 
 function openManualModal() {
     const modal = $("#manual-modal");
@@ -1720,20 +1740,109 @@ const GENRE_CLOUD_HOVER_PAD = 18;
 const GENRE_CLOUD_PAD_X = 8;
 const GENRE_CLOUD_PAD_BOTTOM = 8;
 const GENRE_CLOUD_FILL_MARGIN = 6;
-const GENRE_CLOUD_MAX_DISP = 4.6;
-const GENRE_CLOUD_MAX_SPEED = 16;
+const GENRE_CLOUD_MAX_SPEED = 1200;
+/**
+ * 3.16a：所有力都按「加速度」标定（力 ∝ 相关 mass），大词小词得到同量级加速度。
+ * 旧版力值与 mass 无关、积分时再除 mass，于是小词被猛甩、大词几乎不动——
+ * 这正是词团被拉扁、重叠、并整体慢慢漂向一角的根因。
+ */
+/** 中程吸引：每对按较小 mass 归一的加速度尺度（碰撞 GENRE_CLOUD_COLLIDE 仍硬于此） */
+const GENRE_CLOUD_ATTRACT = 6;
+/** 碰撞刚度：按重叠深度给加速度，量级明显高于吸引，保证不重叠 */
+const GENRE_CLOUD_COLLIDE = 18;
+/** 单词速度阻尼（力 ∝ mass ⇒ 大小词同衰减率 ≈3.6/s，大词不再拖着整团慢慢漂） */
+const GENRE_CLOUD_DAMP = 0.06;
+/** 整团回中弹簧：力 ∝ mass ⇒ 等价刚体平移（不压扁词团），ω≈√(60k)≈2.1rad/s */
+const GENRE_CLOUD_CENTER = 0.075;
+/** 质心速度阻尼（≈4.2/s，接近临界阻尼，回中不来回过冲） */
+const GENRE_CLOUD_CENTER_DAMP = 0.07;
+/** 拖拽中减弱回中，别抢跟手控制 */
+const GENRE_CLOUD_CENTER_DRAG_SCALE = 0.3;
+/** 回中目标：包围盒中心与质心的混合（视觉居中 vs 抗单个离群词带偏） */
+const GENRE_CLOUD_CENTER_BBOX_MIX = 0.55;
+/** 运动学回中：力场被边框/密团夹住推不动时，整团平移回中（不改相对布局） */
+const GENRE_CLOUD_RECENTER_RATE = 3;
+const GENRE_CLOUD_RECENTER_MAX = 240;
+/** 平均速度低于此值算「静止」，此时才全速回中，运动中只做弱修正 */
+const GENRE_CLOUD_RECENTER_CALM = 90;
+const GENRE_CLOUD_RECENTER_MOVING_GAIN = 0.35;
+const GENRE_CLOUD_RECENTER_DRAG_GAIN = 0.15;
+const GENRE_CLOUD_RECENTER_EPS = 0.35;
+/** 吸引半径相对词均跨度的倍率（过小则拖远后断吸） */
+const GENRE_CLOUD_ATTRACT_SPAN = 8.2;
+/** pinned 拖拽体对邻居的拉力倍率（按邻居自身 mass 归一后，大小词跟动一致） */
+const GENRE_CLOUD_PINNED_ATTRACT = 6;
+const GENRE_CLOUD_WALL_REST = 0.28;
+/** 位置级分离迭代：密团里靠它保证「碰撞硬于吸引」，不够则残留重叠 */
+const GENRE_CLOUD_WALL_ITERS = 5;
+const GENRE_CLOUD_COLLIDE_GAP = 3;
+const GENRE_CLOUD_DRAG_THRESHOLD = 6;
+/** 热度分层回复力：按字号定目标半径的径向弹簧（ω≈2.2rad/s，临界阻尼，几秒内收敛） */
+const GENRE_CLOUD_RANK_K = 0.08;
+const GENRE_CLOUD_RANK_DAMP = 0.085;
+/** 分层力的等向阻尼（大词 mass 大，全局 DAMP 不够，靠这项停住） */
+const GENRE_CLOUD_RANK_DAMP_ISO = 0.02;
+/** 拖拽中分层力减弱，保留跟手与邻居跟动 */
+const GENRE_CLOUD_RANK_DRAG_GAIN = 0.15;
+/** 松手后分层力渐入速率（1/s），避免瞬间弹回 */
+const GENRE_CLOUD_RANK_RAMP = 1.8;
+/** 目标半径容差（px）：以内不施力，保留轻微晃动、不抖 */
+const GENRE_CLOUD_RANK_DEADZONE = 5;
+/** 往外推的分力更弱：分层主要靠把大词拉回中心，小词让碰撞挤出去，避免词团向边缘摊开 */
+const GENRE_CLOUD_RANK_OUT_GAIN = 0.45;
+const GENRE_CLOUD_RANK_MAX_ERR = 240;
+/** 目标半径里「初始密铺半径」的权重，其余来自累积面积分层 */
+const GENRE_CLOUD_RANK_HOME_MIX = 0.4;
+/**
+ * 松手后延迟重排：密团是「jammed」的，只靠力场大词挤不回中心，
+ * 所以等团体平静（或超时）后再平滑过渡回按热度密铺的原位。
+ */
+const GENRE_CLOUD_REFLOW_CALM = 120;
+const GENRE_CLOUD_REFLOW_MIN_WAIT = 0.35;
+const GENRE_CLOUD_REFLOW_MAX_WAIT = 1.2;
+const GENRE_CLOUD_REFLOW_DUR = 0.85;
 const GENRE_CLOUD_PANEL_W = 640;
+const GENRE_CLOUD_PANEL_MIN_W = 360;
+const GENRE_CLOUD_PANEL_MIN_H = 280;
 const GENRE_CLOUD_SIDEBAR_GAP = 12;
 const GENRE_CLOUD_SIZE_MIN = 12;
+/** 3.15l：均匀铺满后，最小词约为该均匀最小的比例（拉开对比） */
 const GENRE_CLOUD_MIN_FILL_FACTOR = 0.5;
+/** 目标 max/min（手册：约 89/24 ≈ 3.7）；大面板填满时抬升可读下限，硬底仍为 SIZE_MIN */
+const GENRE_CLOUD_TARGET_CONTRAST = 3.7;
 const GENRE_CLOUD_MAX_RATIO = 0.30;
 const GENRE_CLOUD_MAX_RATIO_HARD = 0.32;
 const GENRE_CLOUD_TIP_OX = 14;
 const GENRE_CLOUD_TIP_OY = 14;
+const GENRE_CLOUD_SIZE_KEY = "mywall-genre-cloud-size";
+/**
+ * 3.16a：分层收敛后「停帧」，坐标定格在 DOM 上。
+ * 之后点卡片 / 点词筛选都不会再动布局；只有拖词、松手重排、面板 resize、窗口重铺才重新起帧。
+ */
+const GENRE_CLOUD_PARK_SPEED = 12;
+const GENRE_CLOUD_PARK_HOLD = 0.4;
+const GENRE_CLOUD_PARK_MAX_T = 4;
+/** 每帧整团位移（px）：运动学回中直接改位置、不带速度，只看速度会误判已静止 */
+const GENRE_CLOUD_PARK_DRIFT = 0.4;
+/** 3.16b：还没居中就先别停帧，否则会把偏心的词团定格在角上（PARK_MAX_T 仍兜底） */
+const GENRE_CLOUD_PARK_OFFCENTER = 6;
+/** 3.16a：词区宽度变化不到该阈值（详情开合、筛选、滚动条微抖）就不重装箱，只夹回硬边界 */
+const GENRE_CLOUD_REPACK_MIN_DW = 6;
 let genreCloudPackedWidth = -1;
 let genreCloudMotionRaf = 0;
 let genreCloudBodies = [];
 let genreCloudMotionLast = 0;
+let genreCloudRootEl = null;
+let genreCloudRankGain = 1;
+let genreCloudReflow = null;
+let genreCloudDrag = null;
+let genreCloudResize = null;
+let genreCloudPanelSize = { w: GENRE_CLOUD_PANEL_W, h: 0 };
+let genreCloudResizePackTimer = 0;
+let genreCloudSettleT = 0;
+let genreCloudCalmT = 0;
+let genreCloudLastCx = NaN;
+let genreCloudLastCy = NaN;
 
 function prefersReducedMotion() {
     try {
@@ -1771,11 +1880,81 @@ function genreCloudFillTarget(n) {
     return 0.40;
 }
 
+function genreCloudDefaultHeight() {
+    const vh = window.innerHeight || 800;
+    return Math.max(GENRE_CLOUD_PANEL_MIN_H, Math.min(Math.round(vh * 0.72), 720));
+}
+
+function genreCloudMaxPanelHeight() {
+    const vh = window.innerHeight || 800;
+    return Math.max(GENRE_CLOUD_PANEL_MIN_H, Math.min(Math.round(vh * 0.92), 920));
+}
+
+function genreCloudMaxPanelWidth() {
+    const dock = genreCloudDockLeft();
+    const vw = window.innerWidth || 1200;
+    return Math.max(GENRE_CLOUD_PANEL_MIN_W, Math.floor(vw - dock - 16));
+}
+
+function loadGenreCloudPanelSize() {
+    const fallback = { w: GENRE_CLOUD_PANEL_W, h: genreCloudDefaultHeight() };
+    try {
+        const raw = localStorage.getItem(GENRE_CLOUD_SIZE_KEY);
+        if (!raw) {
+            genreCloudPanelSize = fallback;
+            return genreCloudPanelSize;
+        }
+        const parsed = JSON.parse(raw);
+        const w = Math.round(Number(parsed?.w) || 0);
+        const h = Math.round(Number(parsed?.h) || 0);
+        if (w < GENRE_CLOUD_PANEL_MIN_W || h < GENRE_CLOUD_PANEL_MIN_H) {
+            genreCloudPanelSize = fallback;
+            return genreCloudPanelSize;
+        }
+        genreCloudPanelSize = {
+            w: Math.min(w, genreCloudMaxPanelWidth()),
+            h: Math.min(h, genreCloudMaxPanelHeight()),
+        };
+        return genreCloudPanelSize;
+    } catch (e) {
+        genreCloudPanelSize = fallback;
+        return genreCloudPanelSize;
+    }
+}
+
+function saveGenreCloudPanelSize() {
+    try {
+        localStorage.setItem(GENRE_CLOUD_SIZE_KEY, JSON.stringify({
+            w: Math.round(genreCloudPanelSize.w),
+            h: Math.round(genreCloudPanelSize.h),
+        }));
+    } catch (e) { /* ignore */ }
+}
+
+function genreCloudClampBodiesToBounds() {
+    const root = genreCloudRootEl || $("#genre-cloud");
+    if (!root || !genreCloudBodies.length) return;
+    const { w: boundsW, h: boundsH } = genreCloudBoundsSize(root);
+    for (let i = 0; i < genreCloudBodies.length; i++) {
+        const b = genreCloudBodies[i];
+        genreCloudClampBody(b, boundsW, boundsH, { bounce: false });
+        genreCloudApplyBodyPos(b);
+    }
+}
+
+function genreCloudSchedulePackAfterResize() {
+    if (genreCloudResizePackTimer) clearTimeout(genreCloudResizePackTimer);
+    genreCloudResizePackTimer = setTimeout(() => {
+        genreCloudResizePackTimer = 0;
+        // 面板拖拽改尺寸松手：这是允许重铺的场合之一
+        relayoutGenreCloudIfOpen({ forcePack: true });
+    }, 120);
+}
+
 function genreCloudPanelBox() {
     const panel = $(".modal-genre-cloud");
-    const w = Math.max(1, panel?.offsetWidth || GENRE_CLOUD_PANEL_W);
-    const cssMax = Math.min((window.innerHeight || 800) * 0.88, 860);
-    const h = Math.max(1, panel?.offsetHeight || cssMax);
+    const w = Math.max(1, panel?.offsetWidth || genreCloudPanelSize.w || GENRE_CLOUD_PANEL_W);
+    const h = Math.max(1, panel?.offsetHeight || genreCloudPanelSize.h || genreCloudDefaultHeight());
     return { w, h, short: Math.min(w, h) };
 }
 
@@ -1807,19 +1986,16 @@ function resetGenreCloudBox(root) {
 }
 
 function genreCloudMaxHeight() {
-    const layer = $("#genre-cloud-modal");
     const modal = $(".modal-genre-cloud");
     const header = modal?.querySelector(".modal-header");
     const body = modal?.querySelector(".genre-cloud-body");
-    const vh = window.innerHeight || 800;
-    const layerH = layer && !layer.classList.contains("hidden") ? layer.clientHeight : 0;
-    const maxModal = Math.min(layerH || vh * 0.88, vh * 0.88, 860);
     const bodyPad = body
         ? (parseFloat(getComputedStyle(body).paddingTop) || 0)
             + (parseFloat(getComputedStyle(body).paddingBottom) || 0)
         : 32;
     const chrome = (header?.offsetHeight || 52) + bodyPad;
-    return Math.max(140, Math.floor(maxModal - chrome - 8));
+    const panelH = modal?.clientHeight || genreCloudPanelSize.h || genreCloudDefaultHeight();
+    return Math.max(140, Math.floor(panelH - chrome - 8));
 }
 
 function genreCloudStyle(count, minCount, maxCount, sizeMin, sizeMax) {
@@ -2016,6 +2192,8 @@ function clearGenreCloudPlacement() {
         panel.style.minWidth = "";
         panel.style.maxWidth = "";
         panel.style.height = "";
+        panel.style.minHeight = "";
+        panel.style.maxHeight = "";
         panel.style.transform = "";
     }
     overlay?.classList.remove("is-pass-through");
@@ -2045,16 +2223,40 @@ function syncGenreCloudPlacement() {
     }
     if (!panel) return;
     overlay?.classList.remove("is-pass-through");
+    if (!genreCloudPanelSize.h) loadGenreCloudPanelSize();
+    const maxW = genreCloudMaxPanelWidth();
+    const maxH = genreCloudMaxPanelHeight();
+    const w = Math.max(GENRE_CLOUD_PANEL_MIN_W, Math.min(Math.round(genreCloudPanelSize.w || GENRE_CLOUD_PANEL_W), maxW));
+    const h = Math.max(GENRE_CLOUD_PANEL_MIN_H, Math.min(Math.round(genreCloudPanelSize.h || genreCloudDefaultHeight()), maxH));
+    genreCloudPanelSize = { w, h };
     const left = genreCloudDockLeft();
     panel.style.top = "50%";
     panel.style.left = `${left}px`;
     panel.style.right = "auto";
     panel.style.bottom = "auto";
-    panel.style.width = `${GENRE_CLOUD_PANEL_W}px`;
-    panel.style.minWidth = `${GENRE_CLOUD_PANEL_W}px`;
-    panel.style.maxWidth = `${GENRE_CLOUD_PANEL_W}px`;
-    panel.style.height = "auto";
+    panel.style.width = `${w}px`;
+    panel.style.minWidth = `${GENRE_CLOUD_PANEL_MIN_W}px`;
+    panel.style.maxWidth = `${maxW}px`;
+    panel.style.height = `${h}px`;
+    panel.style.minHeight = `${GENRE_CLOUD_PANEL_MIN_H}px`;
+    panel.style.maxHeight = `${maxH}px`;
     panel.style.transform = "translateY(-50%)";
+}
+
+/** 3.16a：只同步词区硬边界高度并把词夹回框内，不动字号 / 坐标（与 packGenreCloud 同一高度公式） */
+function genreCloudSyncBox(root) {
+    if (!root) return;
+    const availH = Math.max(8, genreCloudMaxHeight() - GENRE_CLOUD_HOVER_PAD - GENRE_CLOUD_PAD_BOTTOM);
+    root.style.height = `${Math.ceil(availH + GENRE_CLOUD_HOVER_PAD + GENRE_CLOUD_PAD_BOTTOM)}px`;
+    genreCloudClampBodiesToBounds();
+}
+
+/** 词区宽度是否真的变了（到需要重铺的程度） */
+function genreCloudNeedsRepack(root) {
+    if (genreCloudPackedWidth <= 0) return true;
+    const w = Math.round(root?.clientWidth || 0);
+    if (!w) return false;
+    return Math.abs(w - genreCloudPackedWidth) >= GENRE_CLOUD_REPACK_MIN_DW;
 }
 
 function relayoutGenreCloudIfOpen({ forcePack = false } = {}) {
@@ -2063,7 +2265,16 @@ function relayoutGenreCloudIfOpen({ forcePack = false } = {}) {
     syncGenreCloudPlacement();
     const root = $("#genre-cloud");
     if (!root) return;
-    if (forcePack) genreCloudPackedWidth = -1;
+    if (forcePack) {
+        genreCloudPackedWidth = -1;
+        packGenreCloud(root);
+        return;
+    }
+    // 窗口只是变高 / 变化很小：保持现有坐标，别整图重铺
+    if (!genreCloudNeedsRepack(root)) {
+        genreCloudSyncBox(root);
+        return;
+    }
     packGenreCloud(root);
 }
 
@@ -2072,114 +2283,737 @@ function stopGenreCloudMotion() {
         cancelAnimationFrame(genreCloudMotionRaf);
         genreCloudMotionRaf = 0;
     }
+    endGenreCloudDrag({ applyFilter: false });
     genreCloudBodies = [];
     genreCloudMotionLast = 0;
+    genreCloudRootEl = null;
+    genreCloudRankGain = 1;
+    genreCloudReflow = null;
+    genreCloudSettleT = 0;
+    genreCloudCalmT = 0;
+    genreCloudLastCx = NaN;
+    genreCloudLastCy = NaN;
+}
+
+function genreCloudApplyBodyPos(b) {
+    b.el.style.left = `${b.x}px`;
+    b.el.style.top = `${b.y}px`;
+    b.el.style.transform = "";
+}
+
+function genreCloudBoundsSize(root) {
+    // left/top 相对 #genre-cloud 内容盒；client* 即面板词区内缘（已扣 body padding / header）
+    return {
+        w: Math.max(1, root?.clientWidth || 1),
+        h: Math.max(1, root?.clientHeight || 1),
+    };
+}
+
+function genreCloudClampBody(b, boundsW, boundsH, { bounce = false } = {}) {
+    const maxX = Math.max(0, boundsW - b.w);
+    const maxY = Math.max(0, boundsH - b.h);
+    if (b.x < 0) {
+        b.x = 0;
+        if (bounce && b.vx < 0) b.vx = -b.vx * GENRE_CLOUD_WALL_REST;
+        else if (b.vx < 0) b.vx = 0;
+    } else if (b.x > maxX) {
+        b.x = maxX;
+        if (bounce && b.vx > 0) b.vx = -b.vx * GENRE_CLOUD_WALL_REST;
+        else if (b.vx > 0) b.vx = 0;
+    }
+    if (b.y < 0) {
+        b.y = 0;
+        if (bounce && b.vy < 0) b.vy = -b.vy * GENRE_CLOUD_WALL_REST;
+        else if (b.vy < 0) b.vy = 0;
+    } else if (b.y > maxY) {
+        b.y = maxY;
+        if (bounce && b.vy > 0) b.vy = -b.vy * GENRE_CLOUD_WALL_REST;
+        else if (b.vy > 0) b.vy = 0;
+    }
+}
+
+function genreCloudResolveOverlaps(bodies) {
+    const n = bodies.length;
+    for (let i = 0; i < n; i++) {
+        const a = bodies[i];
+        for (let j = i + 1; j < n; j++) {
+            const b = bodies[j];
+            const dx = (b.x + b.w * 0.5) - (a.x + a.w * 0.5);
+            const dy = (b.y + b.h * 0.5) - (a.y + a.h * 0.5);
+            const halfW = a.w * 0.5 + b.w * 0.5 + GENRE_CLOUD_COLLIDE_GAP;
+            const halfH = a.h * 0.5 + b.h * 0.5 + GENRE_CLOUD_COLLIDE_GAP;
+            const ox = halfW - Math.abs(dx);
+            const oy = halfH - Math.abs(dy);
+            if (ox <= 0 || oy <= 0) continue;
+            const inv = 1 / (a.mass + b.mass);
+            if (ox < oy) {
+                const push = (dx < 0 ? -ox : ox);
+                if (!a.pinned) a.x -= push * b.mass * inv;
+                if (!b.pinned) b.x += push * a.mass * inv;
+            } else {
+                const push = (dy < 0 ? -oy : oy);
+                if (!a.pinned) a.y -= push * b.mass * inv;
+                if (!b.pinned) b.y += push * a.mass * inv;
+            }
+        }
+    }
+}
+
+/**
+ * 给每个词算一个「热度层」目标半径（相对面板的椭圆归一，0=质心 1=内缘）。
+ * 形状取自按字号降序的累积面积：r ∝ sqrt(累积面积)，即大词占中心圆盘、小词落到外环；
+ * 半径标度用初始密铺位置最小二乘拟合，所以刚打开时误差接近 0，不会一开窗就重排。
+ */
+function genreCloudAssignRankTargets(root) {
+    const n = genreCloudBodies.length;
+    if (!n) return;
+    const { w: boundsW, h: boundsH } = genreCloudBoundsSize(root);
+    const rx = Math.max(1, boundsW * 0.5);
+    const ry = Math.max(1, boundsH * 0.5);
+    const gap = GENRE_CLOUD_COLLIDE_GAP * 2;
+    let total = 0;
+    for (let i = 0; i < n; i++) {
+        const b = genreCloudBodies[i];
+        b.size = parseFloat(b.el.style.fontSize)
+            || parseFloat(b.el.dataset.baseSize)
+            || GENRE_CLOUD_SIZE_MIN;
+        b.area = (b.w + gap) * (b.h + gap);
+        b.homeU = Math.hypot(((b.x + b.w * 0.5) - rx) / rx, ((b.y + b.h * 0.5) - ry) / ry);
+        total += b.area;
+    }
+    const order = genreCloudBodies
+        .map((b, i) => i)
+        .sort((i, j) => (genreCloudBodies[j].size - genreCloudBodies[i].size)
+            || (genreCloudBodies[j].area - genreCloudBodies[i].area));
+    let cum = 0;
+    let num = 0;
+    let den = 0;
+    for (let k = 0; k < order.length; k++) {
+        const b = genreCloudBodies[order[k]];
+        const mid = cum + b.area * 0.5;
+        cum += b.area;
+        b.rankShape = Math.sqrt(Math.max(0, mid) / (total || 1));
+        num += b.homeU * b.rankShape;
+        den += b.rankShape * b.rankShape;
+    }
+    const fitK = Math.min(1.05, Math.max(0.45, den > 0 ? num / den : 0.85));
+    for (let i = 0; i < n; i++) {
+        const b = genreCloudBodies[i];
+        const shaped = Math.min(0.98, b.rankShape * fitK);
+        const mixed = GENRE_CLOUD_RANK_HOME_MIX * b.homeU
+            + (1 - GENRE_CLOUD_RANK_HOME_MIX) * shaped;
+        b.rankU = Math.min(0.98, Math.max(0, mixed));
+    }
+}
+
+function scheduleGenreCloudReflow() {
+    if (!genreCloudBodies.length || prefersReducedMotion()) return;
+    genreCloudReflow = { phase: "wait", t: 0 };
+    resumeGenreCloudMotion();
+}
+
+function cancelGenreCloudReflow() {
+    genreCloudReflow = null;
+}
+
+/**
+ * 松手后的分层重排：先等团体动能降下来（或超时），再用 easeInOut 平滑挪回密铺原位。
+ * 返回 true 表示本帧由重排接管（跳过力场积分，避免两套位移打架）。
+ */
+function stepGenreCloudReflow(dt, boundsW, boundsH) {
+    const r = genreCloudReflow;
+    if (!r) return false;
+    const n = genreCloudBodies.length;
+    if (!n) {
+        genreCloudReflow = null;
+        return false;
+    }
+    r.t += dt;
+    if (r.phase === "wait") {
+        let speed = 0;
+        for (let i = 0; i < n; i++) {
+            const b = genreCloudBodies[i];
+            if (b.pinned) return false;
+            speed += Math.hypot(b.vx, b.vy);
+        }
+        speed /= n;
+        const calm = r.t >= GENRE_CLOUD_REFLOW_MIN_WAIT && speed < GENRE_CLOUD_REFLOW_CALM;
+        if (!calm && r.t < GENRE_CLOUD_REFLOW_MAX_WAIT) return false;
+        r.phase = "run";
+        r.t = 0;
+        for (let i = 0; i < n; i++) {
+            const b = genreCloudBodies[i];
+            b.fromX = b.x;
+            b.fromY = b.y;
+        }
+    }
+    const k = Math.min(1, r.t / GENRE_CLOUD_REFLOW_DUR);
+    const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+    for (let i = 0; i < n; i++) {
+        const b = genreCloudBodies[i];
+        const hx = Number.isFinite(b.homeX) ? b.homeX : b.x;
+        const hy = Number.isFinite(b.homeY) ? b.homeY : b.y;
+        b.x = b.fromX + (hx - b.fromX) * e;
+        b.y = b.fromY + (hy - b.fromY) * e;
+        b.vx = 0;
+        b.vy = 0;
+        genreCloudClampBody(b, boundsW, boundsH, { bounce: false });
+        genreCloudApplyBodyPos(b);
+    }
+    if (k >= 1) genreCloudReflow = null;
+    return true;
+}
+
+/**
+ * 词团整体状态（只统计自由词，拖拽中的 pinned 词不参与，否则拖远一词就把整团目标带跑）：
+ * 质心 / 包围盒 / 质心速度 / 平均速率。cx,cy 是回中要对齐面板中心的那个点。
+ */
+function genreCloudGroupFrame() {
+    let massSum = 0;
+    let comX = 0;
+    let comY = 0;
+    let velX = 0;
+    let velY = 0;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    let speed = 0;
+    let count = 0;
+    for (let i = 0; i < genreCloudBodies.length; i++) {
+        const b = genreCloudBodies[i];
+        if (b.pinned) continue;
+        const m = b.mass;
+        comX += (b.x + b.w * 0.5) * m;
+        comY += (b.y + b.h * 0.5) * m;
+        velX += b.vx * m;
+        velY += b.vy * m;
+        massSum += m;
+        if (b.x < minX) minX = b.x;
+        if (b.y < minY) minY = b.y;
+        if (b.x + b.w > maxX) maxX = b.x + b.w;
+        if (b.y + b.h > maxY) maxY = b.y + b.h;
+        speed += Math.hypot(b.vx, b.vy);
+        count += 1;
+    }
+    if (!count) return null;
+    const inv = 1 / (massSum || 1);
+    const cmx = comX * inv;
+    const cmy = comY * inv;
+    const mix = GENRE_CLOUD_CENTER_BBOX_MIX;
+    return {
+        count,
+        comX: cmx,
+        comY: cmy,
+        velX: velX * inv,
+        velY: velY * inv,
+        minX,
+        minY,
+        maxX,
+        maxY,
+        speed: speed / count,
+        cx: (minX + maxX) * 0.5 * mix + cmx * (1 - mix),
+        cy: (minY + maxY) * 0.5 * mix + cmy * (1 - mix),
+    };
+}
+
+/**
+ * 运动学回中：整团一起平移，相对布局完全不变。
+ * 只用两侧余量内的位移——否则边框会把外侧词夹住、整团被压扁。
+ */
+function genreCloudRecenterGroup(frame, dt, boundsW, boundsH, gain) {
+    if (!frame || gain <= 0) return;
+    const rate = Math.min(1, dt * GENRE_CLOUD_RECENTER_RATE * gain);
+    const cap = GENRE_CLOUD_RECENTER_MAX * dt;
+    let dx = Math.max(-cap, Math.min(cap, (boundsW * 0.5 - frame.cx) * rate));
+    let dy = Math.max(-cap, Math.min(cap, (boundsH * 0.5 - frame.cy) * rate));
+    if (dx > 0) dx = Math.min(dx, Math.max(0, boundsW - frame.maxX));
+    else if (dx < 0) dx = -Math.min(-dx, Math.max(0, frame.minX));
+    if (dy > 0) dy = Math.min(dy, Math.max(0, boundsH - frame.maxY));
+    else if (dy < 0) dy = -Math.min(-dy, Math.max(0, frame.minY));
+    if (Math.abs(dx) < GENRE_CLOUD_RECENTER_EPS) dx = 0;
+    if (Math.abs(dy) < GENRE_CLOUD_RECENTER_EPS) dy = 0;
+    if (!dx && !dy) return;
+    for (let i = 0; i < genreCloudBodies.length; i++) {
+        const b = genreCloudBodies[i];
+        if (b.pinned) continue;
+        b.x += dx;
+        b.y += dy;
+    }
+}
+
+/** 整团中心与词区几何中心的偏差是否已收进容差 */
+function genreCloudIsCentered(passedFrame) {
+    const root = genreCloudRootEl;
+    const frame = passedFrame || genreCloudGroupFrame();
+    if (!root || !frame) return true;
+    const { w: boundsW, h: boundsH } = genreCloudBoundsSize(root);
+    return Math.abs(frame.cx - boundsW * 0.5) <= GENRE_CLOUD_PARK_OFFCENTER
+        && Math.abs(frame.cy - boundsH * 0.5) <= GENRE_CLOUD_PARK_OFFCENTER;
+}
+
+function genreCloudBodyAtEl(el) {
+    for (let i = 0; i < genreCloudBodies.length; i++) {
+        if (genreCloudBodies[i].el === el) return genreCloudBodies[i];
+    }
+    return null;
 }
 
 function startGenreCloudMotion(root) {
     stopGenreCloudMotion();
-    if (!root || prefersReducedMotion()) return;
+    if (!root) return;
     if ($("#genre-cloud-modal")?.classList.contains("hidden")) return;
     const words = [...root.querySelectorAll(".genre-cloud-word")];
     if (!words.length) return;
-    genreCloudBodies = words.map((el, i) => ({
-        el,
-        w: el.offsetWidth || 1,
-        h: el.offsetHeight || 1,
-        x0: parseFloat(el.style.left) || 0,
-        y0: parseFloat(el.style.top) || 0,
-        ox: 0,
-        oy: 0,
-        vx: 0,
-        vy: 0,
-        seed: i * 1.618 + Math.random() * 6.2,
-    }));
+    genreCloudRootEl = root;
+    genreCloudBodies = words.map((el) => {
+        const w = Math.max(1, el.offsetWidth || 1);
+        const h = Math.max(1, el.offsetHeight || 1);
+        const x = parseFloat(el.style.left) || 0;
+        const y = parseFloat(el.style.top) || 0;
+        el.style.transform = "";
+        return {
+            el,
+            w,
+            h,
+            x,
+            y,
+            vx: 0,
+            vy: 0,
+            mass: Math.max(24, w * h * 0.02),
+            pinned: false,
+            rankU: 0,
+            // 密铺原位：松手后重排的目标（面板 resize 重装箱时随之更新）
+            homeX: x,
+            homeY: y,
+            fromX: x,
+            fromY: y,
+        };
+    });
+    genreCloudAssignRankTargets(root);
+    genreCloudRankGain = 1;
+    genreCloudReflow = null;
+    genreCloudSettleT = 0;
+    genreCloudCalmT = 0;
+    if (prefersReducedMotion()) return;
     genreCloudMotionLast = performance.now();
-    const tick = (now) => {
-        if ($("#genre-cloud-modal")?.classList.contains("hidden")) {
-            stopGenreCloudMotion();
-            return;
-        }
-        const dt = Math.min(0.033, Math.max(0.008, (now - genreCloudMotionLast) / 1000));
-        genreCloudMotionLast = now;
-        if (!document.hidden) stepGenreCloudPhysics(dt, now);
-        genreCloudMotionRaf = requestAnimationFrame(tick);
-    };
-    genreCloudMotionRaf = requestAnimationFrame(tick);
+    genreCloudMotionRaf = requestAnimationFrame(genreCloudTick);
 }
 
-function stepGenreCloudPhysics(dt, now) {
+function genreCloudTick(now) {
+    if ($("#genre-cloud-modal")?.classList.contains("hidden")) {
+        stopGenreCloudMotion();
+        return;
+    }
+    const dt = Math.min(0.033, Math.max(0.008, (now - genreCloudMotionLast) / 1000));
+    genreCloudMotionLast = now;
+    if (!document.hidden) {
+        stepGenreCloudPhysics(dt);
+        if (genreCloudShouldPark(dt)) {
+            parkGenreCloudMotion();
+            return;
+        }
+    }
+    genreCloudMotionRaf = requestAnimationFrame(genreCloudTick);
+}
+
+/** 收敛判据：不在拖拽 / 松手重排 / 面板 resize 中，且团体平均速度已降下来（或已到超时上限） */
+function genreCloudShouldPark(dt) {
     const n = genreCloudBodies.length;
-    if (!n) return;
+    if (!n) return true;
+    if (genreCloudDrag || genreCloudReflow || genreCloudResize) {
+        genreCloudSettleT = 0;
+        genreCloudCalmT = 0;
+        return false;
+    }
+    genreCloudSettleT += dt;
+    let speed = 0;
+    for (let i = 0; i < n; i++) {
+        speed += Math.hypot(genreCloudBodies[i].vx, genreCloudBodies[i].vy);
+    }
+    speed /= n;
+    const frame = genreCloudGroupFrame();
+    // 整团中心的逐帧位移：运动学回中直接改位置、不带速度，只看 speed 会误判已静止
+    const drift = frame && Number.isFinite(genreCloudLastCx)
+        ? Math.hypot(frame.cx - genreCloudLastCx, frame.cy - genreCloudLastCy)
+        : Infinity;
+    if (frame) {
+        genreCloudLastCx = frame.cx;
+        genreCloudLastCy = frame.cy;
+    }
+    const calm = speed < GENRE_CLOUD_PARK_SPEED
+        && drift < GENRE_CLOUD_PARK_DRIFT
+        && genreCloudIsCentered(frame);
+    if (calm) genreCloudCalmT += dt;
+    else genreCloudCalmT = 0;
+    return genreCloudCalmT >= GENRE_CLOUD_PARK_HOLD || genreCloudSettleT >= GENRE_CLOUD_PARK_MAX_T;
+}
+
+/** 停帧但保留 bodies：坐标定格，之后点卡片 / 点词筛选都不会让图再动 */
+function parkGenreCloudMotion() {
+    if (genreCloudMotionRaf) {
+        cancelAnimationFrame(genreCloudMotionRaf);
+        genreCloudMotionRaf = 0;
+    }
+    for (let i = 0; i < genreCloudBodies.length; i++) {
+        const b = genreCloudBodies[i];
+        b.vx = 0;
+        b.vy = 0;
+        genreCloudApplyBodyPos(b);
+    }
+    genreCloudSettleT = 0;
+    genreCloudCalmT = 0;
+}
+
+/** 仅真实交互（确认拖拽、松手重排、边界变化）才重新起帧 */
+function resumeGenreCloudMotion() {
+    if (!genreCloudBodies.length || prefersReducedMotion()) return;
+    if ($("#genre-cloud-modal")?.classList.contains("hidden")) return;
+    genreCloudSettleT = 0;
+    genreCloudCalmT = 0;
+    genreCloudLastCx = NaN;
+    genreCloudLastCy = NaN;
+    if (genreCloudMotionRaf) return;
+    genreCloudMotionLast = performance.now();
+    genreCloudMotionRaf = requestAnimationFrame(genreCloudTick);
+}
+
+function stepGenreCloudPhysics(dt) {
+    const n = genreCloudBodies.length;
+    const root = genreCloudRootEl;
+    if (!n || !root) return;
+    const { w: boundsW, h: boundsH } = genreCloudBoundsSize(root);
+    if (stepGenreCloudReflow(dt, boundsW, boundsH)) return;
     const fx = new Float64Array(n);
     const fy = new Float64Array(n);
-    const t = now * 0.001;
-    const SPRING = 12;
-    const DAMP = 5.2;
-    const BROWN = 1.8;
-    const REPEL = 22;
-    const ATTRACT = 2.4;
 
+    let avgSpan = 0;
+    let hasPinned = false;
     for (let i = 0; i < n; i++) {
         const b = genreCloudBodies[i];
-        fx[i] += -SPRING * b.ox - DAMP * b.vx;
-        fy[i] += -SPRING * b.oy - DAMP * b.vy;
-        fx[i] += Math.sin(t * 0.42 + b.seed) * BROWN;
-        fy[i] += Math.cos(t * 0.37 + b.seed * 1.27) * BROWN;
+        if (b.pinned) hasPinned = true;
+        avgSpan += (b.w + b.h) * 0.5;
     }
+    avgSpan = Math.max(20, avgSpan / n);
+    // 面板尺度下限：拖远后仍能吸回；词跨度倍率保证密团内中程跟动
+    const attractR = Math.max(
+        avgSpan * GENRE_CLOUD_ATTRACT_SPAN,
+        Math.min(boundsW, boundsH) * 0.58,
+        220
+    );
+    const targetCx = boundsW * 0.5;
+    const targetCy = boundsH * 0.5;
+    const frame = genreCloudGroupFrame();
+    // 拖拽时减弱回中，否则邻居被往反方向拽、跟动变差
+    const centerScale = hasPinned ? GENRE_CLOUD_CENTER_DRAG_SCALE : 1;
+    // 整团 → 面板中心：同一个加速度加在每个自由词上 = 刚体平移；带质心速度阻尼，不漂不荡
+    const comAx = frame
+        ? ((targetCx - frame.cx) * GENRE_CLOUD_CENTER - frame.velX * GENRE_CLOUD_CENTER_DAMP) * centerScale
+        : 0;
+    const comAy = frame
+        ? ((targetCy - frame.cy) * GENRE_CLOUD_CENTER - frame.velY * GENRE_CLOUD_CENTER_DAMP) * centerScale
+        : 0;
+    // 分层力围绕词团自身质心：位置交给回中力，分层只负责形状，两者不再互相打架
+    const shapeCx = frame ? frame.comX : targetCx;
+    const shapeCy = frame ? frame.comY : targetCy;
+    // 分层力：拖拽中降到 DRAG_GAIN（不夺跟手感），松手后平滑渐入回 1
+    const rankTarget = hasPinned ? GENRE_CLOUD_RANK_DRAG_GAIN : 1;
+    const rankRate = hasPinned ? 8 : GENRE_CLOUD_RANK_RAMP;
+    genreCloudRankGain += (rankTarget - genreCloudRankGain) * Math.min(1, dt * rankRate);
+    const rankGain = genreCloudRankGain;
+    const rx = Math.max(1, boundsW * 0.5);
+    const ry = Math.max(1, boundsH * 0.5);
 
     for (let i = 0; i < n; i++) {
         const a = genreCloudBodies[i];
-        const ax = a.x0 + a.ox + a.w * 0.5;
-        const ay = a.y0 + a.oy + a.h * 0.5;
+        if (!a.pinned) {
+            fx[i] += comAx * a.mass;
+            fy[i] += comAy * a.mass;
+            fx[i] += -GENRE_CLOUD_DAMP * a.vx * a.mass;
+            fy[i] += -GENRE_CLOUD_DAMP * a.vy * a.mass;
+            if (rankGain > 0.002) {
+                // 目标半径按热度分层：大词半径小（居中），小词半径大（外围）
+                let dx = (a.x + a.w * 0.5) - shapeCx;
+                let dy = (a.y + a.h * 0.5) - shapeCy;
+                let dist = Math.hypot(dx, dy);
+                if (dist < 0.001) {
+                    const ang = i * 2.399963;
+                    dx = Math.cos(ang) * 0.01;
+                    dy = Math.sin(ang) * 0.01;
+                    dist = 0.01;
+                }
+                const nx = dx / dist;
+                const ny = dy / dist;
+                // 椭圆归一半径，让目标层随面板长宽比拉伸
+                const u = Math.hypot(dx / rx, dy / ry) || 1e-6;
+                const err = dist * (1 - (a.rankU || 0) / u);
+                if (Math.abs(err) > GENRE_CLOUD_RANK_DEADZONE) {
+                    const e = Math.max(-GENRE_CLOUD_RANK_MAX_ERR, Math.min(GENRE_CLOUD_RANK_MAX_ERR, err));
+                    const dirGain = e < 0 ? GENRE_CLOUD_RANK_OUT_GAIN : 1;
+                    const k = GENRE_CLOUD_RANK_K * rankGain * a.mass * dirGain;
+                    fx[i] -= nx * k * e;
+                    fy[i] -= ny * k * e;
+                }
+                // 径向阻尼 + 轻等向阻尼：按 mass 归一，大小词一起收敛不来回抖
+                const vr = a.vx * nx + a.vy * ny;
+                const dRad = GENRE_CLOUD_RANK_DAMP * rankGain * a.mass;
+                fx[i] -= nx * dRad * vr;
+                fy[i] -= ny * dRad * vr;
+                const dIso = GENRE_CLOUD_RANK_DAMP_ISO * rankGain * a.mass;
+                fx[i] -= a.vx * dIso;
+                fy[i] -= a.vy * dIso;
+            }
+        }
         for (let j = i + 1; j < n; j++) {
             const b = genreCloudBodies[j];
-            const bx = b.x0 + b.ox + b.w * 0.5;
-            const by = b.y0 + b.oy + b.h * 0.5;
+            const ax = a.x + a.w * 0.5;
+            const ay = a.y + a.h * 0.5;
+            const bx = b.x + b.w * 0.5;
+            const by = b.y + b.h * 0.5;
             const dx = bx - ax;
             const dy = by - ay;
             const dist = Math.hypot(dx, dy) || 0.001;
-            const minD = (a.w + b.w) * 0.18 + (a.h + b.h) * 0.18 + 8;
             const nx = dx / dist;
             const ny = dy / dist;
-            if (dist < minD) {
-                const f = ((minD - dist) / minD) * REPEL;
-                fx[i] -= nx * f;
-                fy[i] -= ny * f;
-                fx[j] += nx * f;
-                fy[j] += ny * f;
-            } else if (dist < minD * 1.85) {
-                const f = (1 - dist / (minD * 1.85)) * ATTRACT;
-                fx[i] += nx * f;
-                fy[i] += ny * f;
-                fx[j] -= nx * f;
-                fy[j] -= ny * f;
+            const halfW = a.w * 0.5 + b.w * 0.5 + GENRE_CLOUD_COLLIDE_GAP;
+            const halfH = a.h * 0.5 + b.h * 0.5 + GENRE_CLOUD_COLLIDE_GAP;
+            const ox = halfW - Math.abs(dx);
+            const oy = halfH - Math.abs(dy);
+            // 两词都自由时按较小 mass 归一（动量守恒，整团不被内部力推着漂）；
+            // 一侧被拖住时按受力者自身 mass 归一，大词也能被拖动的词推开/带走。
+            const bothFree = !a.pinned && !b.pinned;
+            const pairMin = Math.min(a.mass, b.mass);
+            const scaleA = bothFree ? pairMin : a.mass;
+            const scaleB = bothFree ? pairMin : b.mass;
+            if (ox > 0 && oy > 0) {
+                const sepX = ox < oy ? (dx < 0 ? -ox : ox) : 0;
+                const sepY = ox < oy ? 0 : (dy < 0 ? -oy : oy);
+                if (!a.pinned) {
+                    fx[i] -= sepX * GENRE_CLOUD_COLLIDE * scaleA;
+                    fy[i] -= sepY * GENRE_CLOUD_COLLIDE * scaleA;
+                }
+                if (!b.pinned) {
+                    fx[j] += sepX * GENRE_CLOUD_COLLIDE * scaleB;
+                    fy[j] += sepY * GENRE_CLOUD_COLLIDE * scaleB;
+                }
+            } else if (dist < attractR) {
+                // 略低于 AABB 分离距即可吸，避免「只在极近壳层」才有力
+                const minSep = Math.min(halfW, halfH) * 0.72;
+                if (dist > minSep) {
+                    const t = 1 - dist / attractR;
+                    // 缓和衰减：中程仍有明显拉力（原 t² 在半半径处只剩 25%）
+                    const falloff = t * (0.4 + 0.6 * t);
+                    const pinnedBoost = bothFree ? 1 : GENRE_CLOUD_PINNED_ATTRACT;
+                    const pull = GENRE_CLOUD_ATTRACT * falloff * pinnedBoost;
+                    if (!a.pinned) {
+                        fx[i] += nx * pull * scaleA;
+                        fy[i] += ny * pull * scaleA;
+                    }
+                    if (!b.pinned) {
+                        fx[j] -= nx * pull * scaleB;
+                        fy[j] -= ny * pull * scaleB;
+                    }
+                }
             }
         }
     }
 
     for (let i = 0; i < n; i++) {
         const b = genreCloudBodies[i];
-        b.vx += fx[i] * dt;
-        b.vy += fy[i] * dt;
+        if (b.pinned) {
+            genreCloudClampBody(b, boundsW, boundsH, { bounce: false });
+            genreCloudApplyBodyPos(b);
+            continue;
+        }
+        const invM = 1 / b.mass;
+        b.vx += fx[i] * invM * dt * 60;
+        b.vy += fy[i] * invM * dt * 60;
         const sp = Math.hypot(b.vx, b.vy);
         if (sp > GENRE_CLOUD_MAX_SPEED) {
             const s = GENRE_CLOUD_MAX_SPEED / sp;
             b.vx *= s;
             b.vy *= s;
         }
-        b.ox += b.vx * dt;
-        b.oy += b.vy * dt;
-        const d = Math.hypot(b.ox, b.oy);
-        if (d > GENRE_CLOUD_MAX_DISP) {
-            const s = GENRE_CLOUD_MAX_DISP / d;
-            b.ox *= s;
-            b.oy *= s;
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        genreCloudClampBody(b, boundsW, boundsH, { bounce: true });
+    }
+
+    // 词间分离后立刻硬夹回边框；多轮迭代让边框像不可穿透墙参与阻挡
+    for (let iter = 0; iter < GENRE_CLOUD_WALL_ITERS; iter++) {
+        genreCloudResolveOverlaps(genreCloudBodies);
+        for (let i = 0; i < n; i++) {
+            genreCloudClampBody(genreCloudBodies[i], boundsW, boundsH, { bounce: false });
         }
-        b.el.style.transform = `translate(${b.ox.toFixed(2)}px, ${b.oy.toFixed(2)}px)`;
+    }
+
+    // 分离/夹边会吞掉一侧动量（贴角后力场也推不动），残留偏心在这里按位置直接收掉
+    const after = genreCloudGroupFrame();
+    const recenterGain = hasPinned
+        ? GENRE_CLOUD_RECENTER_DRAG_GAIN
+        : (after && after.speed < GENRE_CLOUD_RECENTER_CALM ? 1 : GENRE_CLOUD_RECENTER_MOVING_GAIN);
+    genreCloudRecenterGroup(after, dt, boundsW, boundsH, recenterGain);
+
+    for (let i = 0; i < n; i++) {
+        genreCloudApplyBodyPos(genreCloudBodies[i]);
     }
 }
 
+function endGenreCloudDrag({ applyFilter = false } = {}) {
+    const drag = genreCloudDrag;
+    if (!drag) return;
+    const { body, pointerId, moved, genre, el, pinned } = drag;
+    genreCloudDrag = null;
+    // 3.16a：纯点击（未过阈值）从未接管力场，松手不碰速度 / 不排重，只走筛选
+    if (pinned) {
+        el?.classList.remove("is-dragging");
+        if (body) {
+            body.pinned = false;
+            if (!moved) {
+                body.vx = 0;
+                body.vy = 0;
+            }
+        }
+    }
+    if (moved) scheduleGenreCloudReflow();
+    try {
+        if (el?.hasPointerCapture?.(pointerId)) el.releasePointerCapture(pointerId);
+    } catch (e) { /* ignore */ }
+    if (applyFilter && !moved && genre) applyGenreFromCloud(genre);
+}
+
+function onGenreCloudPointerDown(e) {
+    if (e.button != null && e.button !== 0) return;
+    const root = $("#genre-cloud");
+    const word = e.target.closest?.(".genre-cloud-word");
+    if (!root || !word || !root.contains(word)) return;
+    const body = genreCloudBodyAtEl(word);
+    if (!body && !prefersReducedMotion()) return;
+    const b = body || {
+        el: word,
+        w: word.offsetWidth || 1,
+        h: word.offsetHeight || 1,
+        x: parseFloat(word.style.left) || 0,
+        y: parseFloat(word.style.top) || 0,
+        vx: 0,
+        vy: 0,
+        mass: 1,
+        pinned: false,
+    };
+    if (!body && prefersReducedMotion()) {
+        // reduced-motion：无持续力场，仍允许拖位 + 短按筛选
+    }
+    hideGenreCloudTip();
+    // 3.16a：按下先只记意图——不 pin、不打断松手重排、不动速度，
+    // 越过 GENRE_CLOUD_DRAG_THRESHOLD 才接管力场，所以「点词筛选」对布局零扰动。
+    genreCloudDrag = {
+        body: b,
+        el: word,
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        lastX: e.clientX,
+        lastY: e.clientY,
+        lastT: performance.now(),
+        grabDX: e.clientX - (word.getBoundingClientRect().left),
+        grabDY: e.clientY - (word.getBoundingClientRect().top),
+        moved: false,
+        pinned: false,
+        genre: word.dataset.genre || "",
+    };
+    try {
+        word.setPointerCapture(e.pointerId);
+    } catch (err) { /* ignore */ }
+    e.preventDefault();
+}
+
+/** 拖拽确认：此刻才 pin、打断上一次归位并重新起帧；抓点按当前位置重算，避免起手跳位 */
+function beginGenreCloudDragTakeover(drag, e) {
+    cancelGenreCloudReflow();
+    const rect = drag.el.getBoundingClientRect();
+    drag.grabDX = e.clientX - rect.left;
+    drag.grabDY = e.clientY - rect.top;
+    drag.lastX = e.clientX;
+    drag.lastY = e.clientY;
+    drag.lastT = performance.now();
+    drag.pinned = true;
+    if (drag.body) {
+        drag.body.pinned = true;
+        drag.body.vx = 0;
+        drag.body.vy = 0;
+    }
+    drag.el.classList.add("is-dragging");
+    resumeGenreCloudMotion();
+}
+
+function onGenreCloudPointerDragMove(e) {
+    const drag = genreCloudDrag;
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    const root = genreCloudRootEl || $("#genre-cloud");
+    if (!root) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(dx, dy) >= GENRE_CLOUD_DRAG_THRESHOLD) {
+        drag.moved = true;
+        hideGenreCloudTip();
+        beginGenreCloudDragTakeover(drag, e);
+    }
+    if (!drag.moved) {
+        moveGenreCloudTip(e, drag.el);
+        return;
+    }
+    const rootRect = root.getBoundingClientRect();
+    const b = drag.body;
+    const prevX = b.x;
+    const prevY = b.y;
+    b.x = e.clientX - rootRect.left - drag.grabDX;
+    b.y = e.clientY - rootRect.top - drag.grabDY;
+    const { w: boundsW, h: boundsH } = genreCloudBoundsSize(root);
+    genreCloudClampBody(b, boundsW, boundsH, { bounce: false });
+    const now = performance.now();
+    const dt = Math.max(0.008, (now - drag.lastT) / 1000);
+    b.vx = (b.x - prevX) / dt;
+    b.vy = (b.y - prevY) / dt;
+    drag.lastX = e.clientX;
+    drag.lastY = e.clientY;
+    drag.lastT = now;
+    genreCloudApplyBodyPos(b);
+    if (prefersReducedMotion()) return;
+    // 无持续 rAF 时（不应发生）仍推一把邻居；正常靠力场跟动
+}
+
+function onGenreCloudPointerUp(e) {
+    const drag = genreCloudDrag;
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    if (drag.moved) {
+        const b = drag.body;
+        const sp = Math.hypot(b.vx, b.vy);
+        if (sp > GENRE_CLOUD_MAX_SPEED) {
+            const s = GENRE_CLOUD_MAX_SPEED / sp;
+            b.vx *= s;
+            b.vy *= s;
+        } else {
+            b.vx *= 0.85;
+            b.vy *= 0.85;
+        }
+    }
+    endGenreCloudDrag({ applyFilter: true });
+}
+
+function onGenreCloudPointerMove(e) {
+    if (genreCloudDrag) {
+        onGenreCloudPointerDragMove(e);
+        return;
+    }
+    const word = e.target.closest?.(".genre-cloud-word");
+    if (!word || !$("#genre-cloud")?.contains(word)) {
+        hideGenreCloudTip();
+        return;
+    }
+    moveGenreCloudTip(e, word);
+}
+
+/** 只切 class / aria-pressed（颜色态）；绝不动 left/top/fontSize，也不触发装箱 */
 function syncGenreCloudActive() {
     const root = $("#genre-cloud");
     if (!root) return;
@@ -2270,6 +3104,20 @@ function genreCloudFitScale(packW, packH, maxFont, wordCount, fullW) {
     return { s: Math.min(sFill, sCap, sFit), availH };
 }
 
+/** 先定显示字号区间：max 跟铺满估计；min 用 3.15l 半比拉开，大面板再抬到约 max/3.7（勿贴硬底 12） */
+function genreCloudDisplayRange(minBase, maxBase, s) {
+    const actualMax = Math.max(GENRE_CLOUD_SIZE_MIN, maxBase * s);
+    const uniformMin = minBase * s;
+    let actualMin = Math.max(GENRE_CLOUD_SIZE_MIN, uniformMin * GENRE_CLOUD_MIN_FILL_FACTOR);
+    const contrastFloor = GENRE_CLOUD_SIZE_MIN * GENRE_CLOUD_TARGET_CONTRAST;
+    if (actualMax >= contrastFloor) {
+        const contrastMin = actualMax / GENRE_CLOUD_TARGET_CONTRAST;
+        actualMin = Math.max(actualMin, Math.min(actualMax, contrastMin));
+    }
+    actualMin = Math.min(actualMax, actualMin);
+    return { actualMin, actualMax };
+}
+
 function packGenreCloud(root) {
     if (!root) return;
     const words = [...root.querySelectorAll(".genre-cloud-word")];
@@ -2299,11 +3147,7 @@ function packGenreCloud(root) {
     }
     const probe = genreCloudPackExtent(genreCloudPlaceItems(genreCloudMeasureItems(words), width));
     const estimate = genreCloudFitScale(probe.packW, probe.packH, maxBase, words.length, fullW);
-    const actualMax = Math.max(GENRE_CLOUD_SIZE_MIN, maxBase * estimate.s);
-    const actualMin = Math.min(
-        actualMax,
-        Math.max(GENRE_CLOUD_SIZE_MIN, minBase * estimate.s * GENRE_CLOUD_MIN_FILL_FACTOR)
-    );
+    const { actualMin, actualMax } = genreCloudDisplayRange(minBase, maxBase, estimate.s);
 
     const dispSizes = [];
     for (let i = 0; i < words.length; i++) {
@@ -2318,6 +3162,7 @@ function packGenreCloud(root) {
     const maxDisp = Math.max(...dispSizes);
     const minDisp = Math.min(...dispSizes);
     const fit = genreCloudFitScale(packW, packH, maxDisp, words.length, fullW);
+    // 硬底 12 仅作绝对下限；大面板下 minDisp 已是可读线，等比缩时尽量保持
     const sFloor = GENRE_CLOUD_SIZE_MIN / Math.max(GENRE_CLOUD_SIZE_MIN, minDisp);
     const s2 = Math.min(1, fit.s);
     const s = s2 >= sFloor ? s2 : sFloor;
@@ -2336,10 +3181,11 @@ function packGenreCloud(root) {
         p.el.style.left = `${(p.x - minX) * s + offsetX}px`;
         p.el.style.top = `${(p.y - minY) * s + offsetY}px`;
     }
+    // 固定用面板可用高度，不按词团 bbox 贴边收高度（否则铺满系数塌成 ~1，最小词回 12px）
     root.style.height = `${Math.ceil(fit.availH + GENRE_CLOUD_HOVER_PAD + GENRE_CLOUD_PAD_BOTTOM)}px`;
     root.style.transform = "";
     root.style.marginBottom = "";
-    genreCloudPackedWidth = Math.floor(root.clientWidth);
+    genreCloudPackedWidth = Math.round(root.clientWidth);
     startGenreCloudMotion(root);
 }
 
@@ -2359,15 +3205,6 @@ function moveGenreCloudTip(e, word) {
     tip.classList.toggle("is-active", word.classList.contains("is-active"));
     tip.style.left = `${e.clientX + GENRE_CLOUD_TIP_OX}px`;
     tip.style.top = `${e.clientY + GENRE_CLOUD_TIP_OY}px`;
-}
-
-function onGenreCloudPointerMove(e) {
-    const word = e.target.closest?.(".genre-cloud-word");
-    if (!word || !$("#genre-cloud")?.contains(word)) {
-        hideGenreCloudTip();
-        return;
-    }
-    moveGenreCloudTip(e, word);
 }
 
 function renderGenreCloud() {
@@ -2397,22 +3234,145 @@ function renderGenreCloud() {
     packGenreCloud(root);
 }
 
+function onGenreCloudResizePointerDown(e) {
+    if (e.button != null && e.button !== 0) return;
+    const handle = e.target.closest?.(".genre-cloud-resize");
+    const panel = $(".modal-genre-cloud");
+    if (!handle || !panel || !panel.contains(handle)) return;
+    if (isGenreCloudUnavailable()) return;
+    const dir = handle.getAttribute("data-dir") || "";
+    if (!dir) return;
+    e.preventDefault();
+    e.stopPropagation();
+    endGenreCloudDrag({ applyFilter: false });
+    hideGenreCloudTip();
+    const rect = panel.getBoundingClientRect();
+    genreCloudResize = {
+        dir,
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        startW: rect.width,
+        startH: rect.height,
+        startLeft: rect.left,
+        startTop: rect.top,
+    };
+    document.body.classList.add("genre-cloud-is-resizing");
+    try {
+        handle.setPointerCapture(e.pointerId);
+    } catch (err) { /* ignore */ }
+}
+
+function onGenreCloudResizePointerMove(e) {
+    const drag = genreCloudResize;
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    const panel = $(".modal-genre-cloud");
+    if (!panel) return;
+    const dir = drag.dir;
+    const maxW = genreCloudMaxPanelWidth();
+    const maxH = genreCloudMaxPanelHeight();
+    const dockLeft = genreCloudDockLeft();
+    let w = drag.startW;
+    let h = drag.startH;
+    let left = dockLeft;
+    let top = drag.startTop;
+
+    if (dir.includes("e")) {
+        w = drag.startW + (e.clientX - drag.startX);
+    }
+    if (dir.includes("w")) {
+        const proposedLeft = drag.startLeft + (e.clientX - drag.startX);
+        left = Math.max(dockLeft, Math.round(proposedLeft));
+        w = drag.startW + (drag.startLeft - left);
+    }
+    if (dir.includes("s")) {
+        h = drag.startH + (e.clientY - drag.startY);
+    }
+    if (dir.includes("n")) {
+        h = drag.startH - (e.clientY - drag.startY);
+    }
+
+    w = Math.max(GENRE_CLOUD_PANEL_MIN_W, Math.min(Math.round(w), maxW));
+    h = Math.max(GENRE_CLOUD_PANEL_MIN_H, Math.min(Math.round(h), maxH));
+    if (!dir.includes("w")) left = dockLeft;
+    // 以中线为锚：高度变化时保持垂直居中感
+    top = Math.round(drag.startTop + (drag.startH - h) / 2);
+    const minTop = 8;
+    const maxTop = Math.max(minTop, (window.innerHeight || 800) - h - 8);
+    top = Math.max(minTop, Math.min(top, maxTop));
+    // 西侧拖宽后右缘不越过视口
+    if (dir.includes("w")) {
+        const maxLeft = Math.max(dockLeft, (window.innerWidth || 1200) - w - 8);
+        left = Math.min(left, maxLeft);
+    }
+
+    genreCloudPanelSize = { w, h };
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+    panel.style.transform = "none";
+    panel.style.width = `${w}px`;
+    panel.style.height = `${h}px`;
+    panel.style.minWidth = `${GENRE_CLOUD_PANEL_MIN_W}px`;
+    panel.style.maxWidth = `${maxW}px`;
+    panel.style.minHeight = `${GENRE_CLOUD_PANEL_MIN_H}px`;
+    panel.style.maxHeight = `${maxH}px`;
+
+    // 拖拽中先更新硬边界，松手后再重装箱
+    genreCloudSyncBox($("#genre-cloud"));
+}
+
+function onGenreCloudResizePointerUp(e) {
+    const drag = genreCloudResize;
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    genreCloudResize = null;
+    document.body.classList.remove("genre-cloud-is-resizing");
+    saveGenreCloudPanelSize();
+    // 回到侧栏贴边 + 垂直居中，尺寸保留
+    syncGenreCloudPlacement();
+    genreCloudSchedulePackAfterResize();
+}
+
 function initGenreCloudLayout() {
+    loadGenreCloudPanelSize();
     const root = $("#genre-cloud");
+    const panel = $(".modal-genre-cloud");
     if (root && typeof ResizeObserver !== "undefined") {
         new ResizeObserver(() => {
             if ($("#genre-cloud-modal")?.classList.contains("hidden")) return;
-            const w = Math.round(root.clientWidth);
-            if (!w || w === genreCloudPackedWidth) return;
+            // 面板 resize / 拖词 / 侧栏拖动中：只夹回硬边界，松手后再判断要不要重铺
+            if (genreCloudResize || genreCloudDrag || document.body.classList.contains("panel-is-dragging")) {
+                genreCloudClampBodiesToBounds();
+                return;
+            }
+            // 3.16a：只有词区宽度实质变化才重装箱；高度变化或微抖动只夹回边界，保持坐标
+            if (!genreCloudNeedsRepack(root)) {
+                genreCloudClampBodiesToBounds();
+                return;
+            }
             packGenreCloud(root);
         }).observe(root);
     }
     window.addEventListener("resize", () => {
-        relayoutGenreCloudIfOpen({ forcePack: true });
+        if (genreCloudResize) return;
+        loadGenreCloudPanelSize();
+        relayoutGenreCloudIfOpen();
     });
+    root?.addEventListener("pointerdown", onGenreCloudPointerDown);
     root?.addEventListener("pointermove", onGenreCloudPointerMove);
-    root?.addEventListener("pointerleave", hideGenreCloudTip);
-    root?.addEventListener("pointercancel", hideGenreCloudTip);
+    root?.addEventListener("pointerup", onGenreCloudPointerUp);
+    root?.addEventListener("pointercancel", (e) => {
+        if (genreCloudDrag && e.pointerId === genreCloudDrag.pointerId) {
+            endGenreCloudDrag({ applyFilter: false });
+        }
+        hideGenreCloudTip();
+    });
+    root?.addEventListener("pointerleave", () => {
+        if (!genreCloudDrag) hideGenreCloudTip();
+    });
+    panel?.addEventListener("pointerdown", onGenreCloudResizePointerDown);
+    panel?.addEventListener("pointermove", onGenreCloudResizePointerMove);
+    panel?.addEventListener("pointerup", onGenreCloudResizePointerUp);
+    panel?.addEventListener("pointercancel", onGenreCloudResizePointerUp);
 }
 
 async function openGenreCloudModal() {
@@ -2430,6 +3390,7 @@ async function openGenreCloudModal() {
     if (isGenreCloudUnavailable()) return;
     modal.classList.remove("hidden");
     document.documentElement.classList.add("genre-cloud-open");
+    loadGenreCloudPanelSize();
     syncGenreCloudPlacement();
     renderGenreCloud();
     if (document.fonts?.ready) {
@@ -2438,7 +3399,6 @@ async function openGenreCloudModal() {
         });
     }
     if (btn) btn.setAttribute("aria-expanded", "true");
-    $("#modal-close-genre-cloud")?.focus();
 }
 
 function closeGenreCloudModal() {
@@ -2446,6 +3406,12 @@ function closeGenreCloudModal() {
     const btn = $("#btn-genre-cloud");
     hideGenreCloudTip();
     stopGenreCloudMotion();
+    if (genreCloudResizePackTimer) {
+        clearTimeout(genreCloudResizePackTimer);
+        genreCloudResizePackTimer = 0;
+    }
+    genreCloudResize = null;
+    document.body.classList.remove("genre-cloud-is-resizing");
     document.documentElement.classList.remove("genre-cloud-open");
     if (modal) modal.classList.add("hidden");
     clearGenreCloudPlacement();
@@ -6731,7 +7697,7 @@ function openSidebarFooter({ pin = false } = {}) {
 const WALL_BRIGHTNESS_KEY = "mywall-wall-brightness";
 const WALL_BRIGHTNESS_MIN = 30;
 const WALL_BRIGHTNESS_MAX = 100;
-const WALL_BRIGHTNESS_DEFAULT = 75;
+const WALL_BRIGHTNESS_DEFAULT = 50;
 
 function clampWallBrightness(value) {
     const n = Number(value);
@@ -6843,11 +7809,6 @@ function bindEvents() {
     initGenreCloudLayout();
     $("#btn-genre-cloud")?.addEventListener("click", openGenreCloudModal);
     $("#modal-close-genre-cloud")?.addEventListener("click", closeGenreCloudModal);
-    $("#genre-cloud")?.addEventListener("click", e => {
-        const word = e.target.closest(".genre-cloud-word");
-        if (!word) return;
-        applyGenreFromCloud(word.dataset.genre || "");
-    });
 
     $("#wall-image").addEventListener("click", () => {
         if (!$("#detail-panel").classList.contains("hidden")) closeDetail();

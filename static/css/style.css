@@ -52,6 +52,11 @@
     --pref-1: #1ed760;
     --pref-2: #539df5;
     --pref-3: #ffa42b;
+    /* sidebar disc-card states: idle is transparent on #121212, so hover needs
+       enough lift to read at a glance without leaving the Spotify dark shell */
+    --disc-hover: #333333;
+    --disc-active: #2d2d2d;
+    --disc-active-hover: #3d3d3d;
     --hl-cyan: #539df5;
     --hl-cyan-bg: rgba(83, 157, 245, 0.22);
     --hl-amber-bg: rgba(255, 164, 43, 0.26);
@@ -61,7 +66,7 @@
     --shadow: var(--shadow-heavy);
     /* Outfit ~ Circular; avoid Inter/system; CJK fallbacks */
     --font: "Outfit", "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-    --wall-brightness: 0.75;
+    --wall-brightness: 0.50;
 }
 
 * {
@@ -425,7 +430,7 @@ body.panel-is-dragging #wall-container {
     min-width: 0;
 }
 
-/* Align with .disc-card-btn / .disc-card-icon: 28px hollow circle, 14px stroke glyph */
+/* Sidebar lock/view: 28px hollow circle, 14px stroke glyph */
 .sidebar-icon-btn {
     flex-shrink: 0;
     box-sizing: border-box;
@@ -910,9 +915,9 @@ html.is-narrow #genre-cloud-modal {
     position: relative;
     display: flex;
     align-items: flex-start;
-    gap: 8px;
-    padding: 8px 10px;
-    min-height: calc(8px + var(--disc-poster-h) + 8px);
+    gap: 6px;
+    padding: 6px 8px;
+    min-height: calc(6px + var(--disc-poster-h) + 6px);
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition: var(--transition);
@@ -921,12 +926,16 @@ html.is-narrow #genre-cloud-modal {
 }
 
 .disc-card:hover {
-    background: var(--bg-mid);
+    background: var(--disc-hover);
 }
 
 .disc-card.active {
-    background: var(--bg-elevated);
+    background: var(--disc-active);
     box-shadow: inset 3px 0 0 var(--spotify-green);
+}
+
+.disc-card.active:hover {
+    background: var(--disc-active-hover);
 }
 
 .disc-card.flagged {
@@ -934,8 +943,9 @@ html.is-narrow #genre-cloud-modal {
     box-shadow: inset 3px 0 0 var(--flag);
 }
 
-.disc-card.flagged:hover {
-    background: rgba(255, 164, 43, 0.22);
+.disc-card.flagged:hover,
+.disc-card.flagged.active:hover {
+    background: rgba(255, 164, 43, 0.30);
 }
 
 .disc-card.flagged.active {
@@ -1068,30 +1078,38 @@ html.is-narrow #genre-cloud-modal {
     color: var(--gold);
 }
 
+/* Action column ≈ poster height: 4×16 + 3×2 = 70px (no circle chrome) */
 .disc-card-actions {
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
     align-self: flex-start;
     flex-shrink: 0;
-    gap: 4px;
+    box-sizing: border-box;
+    height: var(--disc-poster-h);
+    width: 18px;
+    gap: 0;
+    padding: 0;
 }
 
 .disc-card-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 18px;
+    height: 16px;
     padding: 0;
+    margin: 0;
     background: transparent;
-    border: 1px solid rgba(179, 179, 179, 0.45);
-    border-radius: 50%;
+    border: none;
+    border-radius: 0;
     color: #b3b3b3;
     cursor: pointer;
     font-size: 13px;
     line-height: 1;
-    transition: color var(--transition), background var(--transition), border-color var(--transition), opacity var(--transition);
-    opacity: 1;
+    transition: color var(--transition), opacity var(--transition);
+    opacity: .5;
     text-shadow: none;
     box-shadow: none;
 }
@@ -1103,10 +1121,11 @@ html.is-narrow #genre-cloud-modal {
     flex-shrink: 0;
 }
 
+/* hover 只把亮度补满，颜色仍是各状态的本色 */
 .disc-card-btn:hover {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba(179, 179, 179, 0.7);
+    color: #b3b3b3;
+    background: transparent;
+    opacity: 1;
 }
 
 .disc-card-btn-pin.is-located {
@@ -1115,23 +1134,22 @@ html.is-narrow #genre-cloud-modal {
 }
 
 .disc-card-btn-pin.is-located:hover {
-    color: var(--accent-light);
-    background: rgba(255, 255, 255, 0.04);
+    color: var(--spotify-green);
+    background: transparent;
     box-shadow: none;
+    opacity: 1;
 }
 
 .disc-card-btn-pin.is-unlocated {
     color: #6a6a6a;
     background: transparent;
-    border-color: rgba(106, 106, 106, 0.55);
-    opacity: 1;
+    opacity: .5;
     filter: none;
 }
 
 .disc-card-btn-pin.is-unlocated:hover {
-    color: #9a9a9a;
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba(154, 154, 154, 0.7);
+    color: #6a6a6a;
+    background: transparent;
     opacity: 1;
     filter: none;
 }
@@ -1142,9 +1160,10 @@ html.is-narrow #genre-cloud-modal {
 }
 
 .disc-card-btn-flag:hover {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.04);
+    color: #b3b3b3;
+    background: transparent;
     box-shadow: none;
+    opacity: 1;
 }
 
 .disc-card-btn-flag.is-flagged,
@@ -1157,9 +1176,10 @@ html.is-narrow #genre-cloud-modal {
 
 .disc-card-btn-flag.is-flagged:hover,
 .disc-card-btn.is-flagged:hover {
-    color: var(--flag-bright);
-    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-warning);
+    background: transparent;
     box-shadow: none;
+    opacity: 1;
 }
 
 .disc-card-btn-danger {
@@ -1168,10 +1188,34 @@ html.is-narrow #genre-cloud-modal {
 }
 
 .disc-card-btn-danger:hover {
-    color: var(--coral);
-    background: rgba(255, 255, 255, 0.04);
+    color: #b3b3b3;
+    background: transparent;
     box-shadow: none;
     filter: none;
+    opacity: 1;
+}
+
+/* 亮度绑在整张卡的 hover：非当前卡片的操作钮压到很淡，鼠标落到卡上才回到常规亮度。
+   放在各状态规则之后，靠源码顺序 + 特异性压过上面的 opacity。 */
+.disc-card .disc-card-btn {
+    opacity: .25;
+}
+
+.disc-card:hover .disc-card-btn,
+.disc-card.active .disc-card-btn {
+    opacity: .5;
+}
+
+.disc-card .disc-card-btn:hover,
+.disc-card:hover .disc-card-btn:hover {
+    opacity: 1;
+}
+
+/* 触屏没有 hover，保持原来的默认亮度，否则图标永远是暗的 */
+@media (hover: none) {
+    .disc-card .disc-card-btn {
+        opacity: .5;
+    }
 }
 
 /* ===== preference heart (same row as year; overlay menu so hover does not stretch poster) ===== */
@@ -1391,7 +1435,7 @@ html.is-narrow #genre-cloud-modal {
 }
 
 .wall-brightness input[type="range"] {
-    --fill: 64.3%;
+    --fill: 28.6%;
     flex: 1;
     min-width: 0;
     height: 18px;
@@ -2069,17 +2113,18 @@ html.is-narrow #genre-cloud-modal {
 }
 
 .modal-content.modal-genre-cloud {
-    /* 固定宽高贴侧栏右缘；left 由 JS 按 sidebar.getBoundingClientRect().right + 12 更新 */
+    /* 默认定宽约 640；宽高可由边/角手柄拖拽；left 由 JS 贴侧栏右缘 */
     position: fixed;
     left: calc(8px + 340px + 12px);
     top: 50%;
     transform: translateY(-50%);
     width: 640px;
-    min-width: 640px;
-    max-width: 640px;
+    min-width: 360px;
+    max-width: none;
     flex-shrink: 0;
-    max-height: min(88vh, 860px);
-    height: auto;
+    max-height: min(92vh, 920px);
+    height: min(72vh, 720px);
+    min-height: 280px;
     overflow: hidden;
     background: rgba(18, 18, 18, 0.72);
     pointer-events: auto;
@@ -2089,7 +2134,8 @@ html.is-narrow #genre-cloud-modal {
     transition: left 0.2s ease;
 }
 
-body.panel-is-dragging .modal-content.modal-genre-cloud {
+body.panel-is-dragging .modal-content.modal-genre-cloud,
+body.genre-cloud-is-resizing .modal-content.modal-genre-cloud {
     transition: none;
 }
 
@@ -2099,10 +2145,76 @@ body.panel-is-dragging .modal-content.modal-genre-cloud {
     background: transparent;
 }
 
+/* 关闭钮半尺寸；默认隐藏，悬停面板或键盘 focus-visible 时显现 */
+.modal-genre-cloud .modal-close {
+    width: 16px;
+    height: 16px;
+    font-size: 9px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.modal-genre-cloud:hover .modal-close,
+.modal-genre-cloud:focus-within .modal-close,
+.modal-genre-cloud .modal-close:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 .genre-cloud-body {
     padding: 4px 16px 12px;
     overflow: hidden;
     display: block;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.genre-cloud-resize {
+    position: absolute;
+    z-index: 6;
+    background: transparent;
+    touch-action: none;
+}
+
+.genre-cloud-resize[data-dir="n"],
+.genre-cloud-resize[data-dir="s"] {
+    left: 10px;
+    right: 10px;
+    height: 8px;
+    cursor: ns-resize;
+}
+
+.genre-cloud-resize[data-dir="n"] { top: 0; }
+.genre-cloud-resize[data-dir="s"] { bottom: 0; }
+
+.genre-cloud-resize[data-dir="e"],
+.genre-cloud-resize[data-dir="w"] {
+    top: 10px;
+    bottom: 10px;
+    width: 8px;
+    cursor: ew-resize;
+}
+
+.genre-cloud-resize[data-dir="e"] { right: 0; }
+.genre-cloud-resize[data-dir="w"] { left: 0; }
+
+.genre-cloud-resize[data-dir="ne"],
+.genre-cloud-resize[data-dir="nw"],
+.genre-cloud-resize[data-dir="se"],
+.genre-cloud-resize[data-dir="sw"] {
+    width: 14px;
+    height: 14px;
+}
+
+.genre-cloud-resize[data-dir="ne"] { top: 0; right: 0; cursor: nesw-resize; }
+.genre-cloud-resize[data-dir="nw"] { top: 0; left: 0; cursor: nwse-resize; }
+.genre-cloud-resize[data-dir="se"] { bottom: 0; right: 0; cursor: nwse-resize; }
+.genre-cloud-resize[data-dir="sw"] { bottom: 0; left: 0; cursor: nesw-resize; }
+
+body.genre-cloud-is-resizing {
+    cursor: inherit;
+    user-select: none;
 }
 
 .genre-cloud {
@@ -2120,7 +2232,8 @@ body.panel-is-dragging .modal-content.modal-genre-cloud {
     background: none;
     border: none;
     box-shadow: none;
-    cursor: pointer;
+    cursor: grab;
+    touch-action: none;
     font-family: var(--font);
     color: var(--genre-cloud-fg, var(--text-silver));
     line-height: 1;
@@ -2135,7 +2248,13 @@ body.panel-is-dragging .modal-content.modal-genre-cloud {
     overflow: visible;
     transition: color 0.15s ease;
     transform: translate(0, 0);
-    will-change: transform;
+    will-change: left, top;
+}
+
+.genre-cloud-word.is-dragging {
+    cursor: grabbing;
+    z-index: 5;
+    color: var(--text-base);
 }
 
 .genre-cloud-word.is-vertical {
@@ -2920,6 +3039,12 @@ body.readonly #upload-zone {
 body.readonly .tree-group-thumb:hover {
     box-shadow: none;
     opacity: 0.4;
+}
+/* 卡片操作钮默认已压到 .25，只读态要再降一档才读得出禁用；卡片 hover 也不得点亮写操作 */
+body.readonly .disc-card-actions .disc-card-btn:not(.disc-card-btn-pin),
+body.readonly .disc-card:hover .disc-card-actions .disc-card-btn:not(.disc-card-btn-pin),
+body.readonly .disc-card-actions .disc-card-btn:not(.disc-card-btn-pin):hover {
+    opacity: 0.15;
 }
 body.readonly .disc-pref:hover .disc-pref-menu,
 body.readonly .disc-pref:focus-within .disc-pref-menu {
