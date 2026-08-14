@@ -51,7 +51,7 @@
         const normalized = normalizeLang(lang, DEFAULT_UI_LANG);
         if (dictionaries.has(normalized)) return dictionaries.get(normalized);
 
-        const response = await global.fetch(`/static/locales/${normalized}.json?v=5.0c`);
+        const response = await global.fetch(`/static/locales/${normalized}.json?v=5.0f`);
         if (!response.ok) {
             throw new Error(`Unable to load locale "${normalized}" (${response.status})`);
         }
@@ -84,6 +84,9 @@
             element.setAttribute("placeholder", t(element.dataset.i18nPlaceholder));
         });
         scope.querySelectorAll("[data-i18n-title]").forEach((element) => {
+            // On <html> the key drives document.title; a title attribute there
+            // would be inherited as a native tooltip by every element on the page.
+            if (element === docEl) return;
             element.setAttribute("title", t(element.dataset.i18nTitle));
         });
         scope.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
@@ -95,8 +98,9 @@
         scope.querySelectorAll("[data-i18n-value]").forEach((element) => {
             element.setAttribute("value", t(element.dataset.i18nValue));
         });
-        const titleKey = global.document.documentElement.dataset.i18nTitle;
+        const titleKey = docEl.dataset.i18nTitle;
         if (titleKey) global.document.title = t(titleKey);
+        docEl.removeAttribute("title");
     }
 
     async function setUiLang(value) {
