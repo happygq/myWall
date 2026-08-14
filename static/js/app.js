@@ -74,6 +74,21 @@ const state = {
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 const tr = (key, params) => window.MyWallI18n ? window.MyWallI18n.t(key, params) : key;
+function uiLocaleTag() {
+    return window.MyWallI18n?.getUiLocaleTag?.() || "en";
+}
+function refreshDynamicUi() {
+    if (window.MyWallI18n) window.MyWallI18n.applyI18n();
+    syncWallSheetHandle(document.documentElement.classList.contains("wall-collapsed"));
+    syncSidebarFooterToggle();
+    updateExistingPhotosActions?.();
+    updateUploadButton?.();
+    updateBatchActionBar?.();
+    updateSelectAllButton?.();
+    _setEditDiscModalChrome(editDiscState.mode || "edit");
+    if (isSidebarFooterOpen()) openSidebarFooter({ pin: !!$("#sidebar-footer")?.dataset.pinned }); else closeSidebarFooter();
+}
+
 
 // ===== 工具函数 =====
 function showToast(msg, type = "") {
@@ -214,7 +229,7 @@ async function api(path, options = {}) {
     }
     const res = await fetch(`/api${path}`, config);
     if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "请求失败" }));
+        const err = await res.json().catch(() => ({ error: "Request failed" }));
         // 旧后端曾把「全部来源 + 跳过无 key 的 IMDb/TVDB」标成 400，但仍是有效搜索结果
         if (String(path).includes("/meta/search") && Array.isArray(err.candidates)) {
             return err;
@@ -264,8 +279,8 @@ async function loadMetaProviders(force = false) {
     } catch (_) {
         metaProvidersCache = {
             tmdb: { enabled: true, label: "TMDb" },
-            imdb: { enabled: false, label: "IMDb", hint: "无法检测 OMDb 配置" },
-            tvdb: { enabled: false, label: "TVDB", hint: "无法检测 TVDB 配置" },
+            imdb: { enabled: false, label: "IMDb", hint: tr("meta.omdbUnavailable") },
+            tvdb: { enabled: false, label: "TVDB", hint: tr("meta.tvdbUnavailable") },
         };
     }
     return metaProvidersCache;
@@ -273,7 +288,7 @@ async function loadMetaProviders(force = false) {
 
 function tmdbTypeBadgeHtml(mediaType) {
     const mt = normalizeTmdbMediaType(mediaType);
-    const label = mt === "tv" ? "剧集" : "电影";
+    const label = mt === "tv" ? tr("meta.typeTv") : tr("meta.typeMovie");
     return `<span class="tmdb-type-badge is-${mt}">${label}</span>`;
 }
 
@@ -295,8 +310,8 @@ function metaSkippedHint(data, source) {
         return info.label || String(s).toUpperCase();
     });
     const runnable = ["tmdb", "imdb", "tvdb"].filter(s => data.providers?.[s]?.enabled);
-    const rest = runnable.length ? `仅搜 ${runnable.map(s => data.providers[s].label || s).join("、")}` : "无可用来源";
-    return `已跳过未启用的 ${labels.join("、")}，${rest}`;
+    const rest = runnable.length ? tr("meta.searchOnly", { sources: runnable.map(s => data.providers[s].label || s).join(", ") }) : tr("meta.noSources");
+    return tr("meta.skippedSources", { sources: labels.join(", "), rest });
 }
 
 function metaSearchErrorNotes(data) {
@@ -336,11 +351,11 @@ function bindTmdbScopeSeg(segEl, onChange) {
 function tmdbScopeSegHtml(id, activeScope = "all") {
     const scope = normalizeTmdbSearchScope(activeScope);
     const opts = [
-        ["all", "全部"],
-        ["movie", "电影"],
-        ["tv", "剧集"],
+        ["all", tr("edit.scopeAll")],
+        ["movie", tr("meta.typeMovie")],
+        ["tv", tr("meta.typeTv")],
     ];
-    return `<div class="tmdb-scope-seg" id="${id}" role="group" aria-label="搜索类型">
+    return `<div class="tmdb-scope-seg" id="${id}" role="group" aria-label=tr("edit.scopeSearchType")>
         ${opts.map(([v, label]) =>
             `<button type="button" class="tmdb-scope-btn${v === scope ? " is-active" : ""}" data-scope="${v}">${label}</button>`
         ).join("")}
@@ -379,7 +394,7 @@ async function applyMetaSourceAvailability(segEl) {
         btn.classList.toggle("is-disabled", !enabled);
         if (!enabled) {
             btn.setAttribute("disabled", "disabled");
-            btn.title = info.hint || `未配置 ${src.toUpperCase()} key`;
+            btn.title = info.hint || tr("meta.noKey", { source: src.toUpperCase() });
             if (btn.classList.contains("is-active")) {
                 btn.classList.remove("is-active");
                 const allBtn = segEl.querySelector('[data-source="all"]');
@@ -387,7 +402,7 @@ async function applyMetaSourceAvailability(segEl) {
             }
         } else {
             btn.removeAttribute("disabled");
-            btn.title = info.via ? `经由 ${info.via}` : "";
+            btn.title = info.via ? tr("meta.via", { name: info.via }) : "";
         }
     });
 }
@@ -419,18 +434,18 @@ function renderEditApiKeysPanel(keys) {
     body.innerHTML = API_KEY_SOURCES.map(([src, label]) => {
         const info = keys[src] || {};
         const configured = !!info.configured;
-        const masked = configured ? (info.masked || "••••") : "未配置";
+        const masked = configured ? (info.masked || "••••") : tr("edit.apiKeyNotConfigured");
         const on = info.enabled !== false;
         return `<div class="edit-api-key-row" data-source="${src}">
             <div class="edit-api-key-head">
                 <span class="edit-api-key-label">${label}</span>
                 <span class="edit-api-key-masked${configured ? "" : " is-empty"}">${escapeHtml(masked)}</span>
-                <button type="button" class="edit-api-key-switch${on ? " is-on" : ""}" role="switch" aria-checked="${on ? "true" : "false"}" title="${on ? "尝试调用（开）" : "尝试调用（关）"}" aria-label="${label} 尝试调用"></button>
+                <button type="button" class="edit-api-key-switch${on ? " is-on" : ""}" role="switch" aria-checked="${on ? "true" : "false"}" title="${on ? tr("edit.apiKeyToggleOn") : tr("edit.apiKeyToggleOff")}" aria-label="${tr("edit.apiKeyTry", { label })}"></button>
             </div>
             <div class="edit-api-key-edit">
-                <input type="password" autocomplete="off" spellcheck="false" placeholder="粘贴新 key" aria-label="${label} 新 key">
-                <button type="button" class="edit-api-key-iconbtn" data-act="save" title="保存" aria-label="保存 ${label} key">${ICON_KEY_SAVE}</button>
-                <button type="button" class="edit-api-key-iconbtn" data-act="clear" title="清除" aria-label="清除 ${label} key" ${configured ? "" : "disabled"}>${ICON_KEY_CLEAR}</button>
+                <input type="password" autocomplete="off" spellcheck="false" placeholder="${tr("edit.apiKeyNew")}" aria-label="${tr("edit.apiKeyNewAria", { label })}">
+                <button type="button" class="edit-api-key-iconbtn" data-act="save" title="${tr("action.save")}" aria-label="${tr("edit.apiKeySaveAria", { label })}">${ICON_KEY_SAVE}</button>
+                <button type="button" class="edit-api-key-iconbtn" data-act="clear" title="${tr("edit.apiKeyClear")}" aria-label="${tr("edit.apiKeyClearAria", { label })}" ${configured ? "" : "disabled"}>${ICON_KEY_CLEAR}</button>
             </div>
         </div>`;
     }).join("");
@@ -447,7 +462,7 @@ function setEditApiKeysError(msg) {
     }
     el.hidden = false;
     el.classList.remove("hidden");
-    el.innerHTML = `<span>无法读取 API Key：${escapeHtml(msg)}</span><button type="button" class="edit-api-keys-retry" data-act="retry-keys">重试</button>`;
+    el.innerHTML = `<span>${tr("toast.apiKeysLoadFailed", { message: escapeHtml(msg) })}</span><button type="button" class="edit-api-keys-retry" data-act="retry-keys">${tr("action.retry")}</button>`;
 }
 
 async function loadEditApiKeysPanel() {
@@ -461,7 +476,7 @@ async function loadEditApiKeysPanel() {
         setEditApiKeysError("");
         renderEditApiKeysPanel(data.keys || {});
     } catch (e) {
-        setEditApiKeysError(e.message || "请求失败");
+        setEditApiKeysError(e.message || tr("status.requestFailed"));
         if (!body.querySelector(".edit-api-key-row")) {
             renderEditApiKeysPanel({});
         }
@@ -498,9 +513,9 @@ function bindEditApiKeysPanel() {
             sw.disabled = true;
             try {
                 await applyApiKeyUpdate(source, { enabled: next });
-                showToast(next ? "已开启尝试调用" : "已关闭该来源请求", "success");
+                showToast(next ? tr("toast.apiKeyToggleOn") : tr("toast.apiKeyToggleOff"), "success");
             } catch (err) {
-                showToast("更新失败: " + (err.message || err), "error");
+                showToast(tr("toast.updateFailed", { message: err.message || err }), "error");
                 sw.disabled = false;
             }
             return;
@@ -514,19 +529,19 @@ function bindEditApiKeysPanel() {
             if (act === "save") {
                 const key = (input?.value || "").trim();
                 if (!key) {
-                    showToast("请先粘贴新 key", "error");
+                    showToast(tr("toast.apiKeyPasteFirst"), "error");
                     return;
                 }
                 await applyApiKeyUpdate(source, { api_key: key });
                 if (input) input.value = "";
-                showToast("已保存（仅显示掩码）", "success");
+                showToast(tr("toast.apiKeySaved"), "success");
             } else if (act === "clear") {
                 await applyApiKeyUpdate(source, { api_key: "" });
                 if (input) input.value = "";
-                showToast("已清除该源 key", "success");
+                showToast(tr("toast.apiKeyCleared"), "success");
             }
         } catch (err) {
-            showToast("更新失败: " + (err.message || err), "error");
+            showToast(tr("toast.updateFailed", { message: err.message || err }), "error");
         } finally {
             btn.disabled = false;
         }
@@ -540,7 +555,7 @@ function bindMetaSourceSeg(segEl, onChange) {
         const btn = e.target.closest(".tmdb-scope-btn");
         if (!btn || !segEl.contains(btn)) return;
         if (btn.classList.contains("is-disabled") || btn.disabled) {
-            const hint = btn.title || "该来源未配置 API Key";
+            const hint = btn.title || tr("toast.sourceNoKey");
             showToast(hint, "error");
             return;
         }
@@ -553,12 +568,12 @@ function bindMetaSourceSeg(segEl, onChange) {
 function metaSourceSegHtml(id, activeSource = "all") {
     const source = normalizeMetaSource(activeSource);
     const opts = [
-        ["all", "全部"],
+        ["all", tr("edit.scopeAll")],
         ["tmdb", "TMDb"],
         ["imdb", "IMDb"],
         ["tvdb", "TVDB"],
     ];
-    return `<div class="tmdb-scope-seg" id="${id}" role="group" aria-label="搜索来源">
+    return `<div class="tmdb-scope-seg" id="${id}" role="group" aria-label=tr("edit.scopeSearchSource")>
         ${opts.map(([v, label]) =>
             `<button type="button" class="tmdb-scope-btn${v === source ? " is-active" : ""}" data-source="${v}">${label}</button>`
         ).join("")}
@@ -575,7 +590,7 @@ function renderMetaCandidateItem(r) {
     const title = r.title_cn || r.title || "";
     const titleEn = r.title_en || r.original_title || "";
     const rating = Number(r.rating || 0);
-    const vote = r.vote_count != null ? ` | ${r.vote_count}票` : "";
+    const vote = r.vote_count != null ? ` | ${tr("meta.votes", { count: r.vote_count })}` : "";
     const idHint = src === "tmdb"
         ? `TMDb ${r.tmdb_id || ""}`
         : src === "imdb"
@@ -600,7 +615,7 @@ function renderMetaCandidateItem(r) {
             <div class="match-info">
                 <div class="match-title">${escapeHtml(title)}${sourceBadgeHtml(src)}${tmdbTypeBadgeHtml(mt)}</div>
                 <div class="match-meta">${escapeHtml(titleEn)} | ${escapeHtml(String(r.year || ""))} | ${escapeHtml(idHint)}${rating ? ` | ⭐ ${rating.toFixed(1)}` : ""}${vote}</div>
-                <div class="match-overview">${escapeHtml(r.overview || "暂无简介")}</div>
+                <div class="match-overview">${escapeHtml(r.overview || tr("detail.noSynopsis"))}</div>
             </div>
         </div>`;
 }
@@ -1014,9 +1029,9 @@ function syncWallSheetHandle(collapsed) {
     handle.tabIndex = narrow ? 0 : -1;
     handle.setAttribute("aria-hidden", narrow ? "false" : "true");
     handle.setAttribute("aria-expanded", on ? "false" : "true");
-    const label = on ? "下滑显示墙面" : "上滑隐藏墙面";
+    const label = on ? tr("wall.sheetShow") : tr("wall.sheetHide");
     handle.setAttribute("title", label);
-    handle.setAttribute("aria-label", `${label}，反向滑动切换`);
+    handle.setAttribute("aria-label", tr("wall.sheetAria", { action: label }));
 }
 
 function applyWallCollapsed(collapsed) {
@@ -1135,19 +1150,81 @@ async function init() {
 }
 
 function initLanguageSelector() {
-    const select = $("#ui-language-select");
-    if (!select || !window.MyWallI18n) return;
-    select.value = window.MyWallI18n.getUiLang();
-    select.addEventListener("change", async () => {
-        await window.MyWallI18n.setUiLang(select.value);
+    const control = $("#ui-language-control");
+    const trigger = $("#ui-language-trigger");
+    const options = Array.from(document.querySelectorAll(".language-option[data-lang]"));
+    if (!control || !trigger || !options.length || !window.MyWallI18n) return;
+
+    const languages = {
+        en: { flag: "🇺🇸", label: "English" },
+        zh: { flag: "🇨🇳", label: "简体中文" },
+        ja: { flag: "🇯🇵", label: "日本語" },
+        ko: { flag: "🇰🇷", label: "한국어" },
+    };
+
+    const setOpen = (open, suppressHover = false) => {
+        control.classList.toggle("is-open", open);
+        control.classList.toggle("is-hover-suppressed", !open && suppressHover);
+        trigger.setAttribute("aria-expanded", String(open));
+    };
+
+    const syncLanguageControl = (lang) => {
+        const language = languages[lang] || languages.en;
+        const flag = trigger.querySelector(".language-flag");
+        if (flag) flag.textContent = language.flag;
+        trigger.setAttribute("aria-label", language.label);
+        trigger.setAttribute("title", language.label);
+        options.forEach(option => {
+            option.setAttribute("aria-selected", String(option.dataset.lang === lang));
+        });
+    };
+
+    syncLanguageControl(window.MyWallI18n.getUiLang());
+    trigger.addEventListener("click", event => {
+        event.stopPropagation();
+        control.classList.remove("is-hover-suppressed");
+        setOpen(!control.classList.contains("is-open"));
+    });
+    options.forEach(option => {
+        option.addEventListener("click", async event => {
+            event.stopPropagation();
+            const lang = option.dataset.lang;
+            if (!languages[lang]) return;
+            control.setAttribute("aria-busy", "true");
+            try {
+                await window.MyWallI18n.setUiLang(lang);
+                setOpen(false, true);
+                trigger.focus({ preventScroll: true });
+            } catch (error) {
+                console.error("[myWall] language switch failed", error);
+                showToast(error.message, "error");
+            } finally {
+                control.removeAttribute("aria-busy");
+            }
+        });
+    });
+    control.addEventListener("mouseleave", () => {
+        if (!control.contains(document.activeElement)) {
+            control.classList.remove("is-hover-suppressed");
+            setOpen(false);
+        }
+    });
+    control.addEventListener("keydown", event => {
+        if (event.key !== "Escape") return;
+        setOpen(false, true);
+        trigger.focus({ preventScroll: true });
+    });
+    document.addEventListener("click", event => {
+        if (!control.contains(event.target)) setOpen(false);
     });
     window.addEventListener("mywall:ui-language-changed", (event) => {
-        select.value = event.detail.lang;
+        syncLanguageControl(event.detail.lang);
         syncEditModeToggle(isEditUnlocked());
         updateDiscCount(state.discs.length);
         populateGenreFilter(state.filters?.genres);
         renderDiscList();
         if (state.selectedDiscId) showDiscDetail(state.selectedDiscId);
+        refreshDynamicUi();
         syncManualLinks();
     });
     syncManualLinks();
@@ -1178,7 +1255,7 @@ async function loadImageUrlMap() {
 }
 
 function sourceImageThumbUrl(filename) {
-    if (!filename || filename === "未归类") return "";
+    if (!filename || filename === tr("tree.uncategorized")) return "";
     if (state.imageUrlMap[filename]) return state.imageUrlMap[filename];
     return `/uploads/${filename}`;
 }
@@ -1275,7 +1352,7 @@ function renderDiscMarkers() {
     m.style.left = `${disc.pos_x}%`;
     m.style.top = `${disc.pos_y}%`;
     m.dataset.discId = disc.id;
-    m.title = flagged ? `${disc.title_cn}（识别有误）` : disc.title_cn;
+    m.title = flagged ? tr("toast.flaggedTitle", { title: disc.title_cn }) : disc.title_cn;
     const tt = document.createElement("div");
     tt.className = "disc-marker-tooltip";
     tt.textContent = flagged ? `⚠ ${disc.title_cn}` : disc.title_cn;
@@ -1452,16 +1529,16 @@ function renderDiscTree() {
     // 按 source_image 分组
     const groups = {};
     state.discs.forEach(disc => {
-        const source = disc.source_image || "未归类";
+        const source = disc.source_image || tr("tree.uncategorized");
         if (!groups[source]) groups[source] = [];
         groups[source].push(disc);
     });
 
     // 按分组名称排序：未归类放最后
     const sortedKeys = Object.keys(groups).sort((a, b) => {
-        if (a === "未归类") return 1;
-        if (b === "未归类") return -1;
-        return a.localeCompare(b, "zh-CN");
+        if (a === tr("tree.uncategorized")) return 1;
+        if (b === tr("tree.uncategorized")) return -1;
+        return a.localeCompare(b, uiLocaleTag());
     });
 
     const groupIdPrefix = "tree-group-";
@@ -1469,7 +1546,7 @@ function renderDiscTree() {
     list.innerHTML = sortedKeys.map(key => {
         const groupDiscs = groups[key];
         const count = groupDiscs.length;
-        const isUncategorized = key === "未归类";
+        const isUncategorized = key === tr("tree.uncategorized");
         const safeKey = key.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, "_");
         const groupId = groupIdPrefix + safeKey;
 
@@ -1482,7 +1559,7 @@ function renderDiscTree() {
         const iconHtml = isUncategorized
             ? `<span class="tree-group-icon">📦</span>`
             : `<img class="tree-group-thumb" src="${escapeHtml(thumbUrl)}" alt="" loading="lazy"
-                    title="点击调整在墙面上的位置"
+                    title="${tr("tree.adjustPlacement")}"
                     onclick="event.stopPropagation();openSourcePlacementEditor(decodeURIComponent('${encodedKey}'))"
                     onerror="this.onerror=null;this.src='/photos/${escapeHtml(key)}';this.onerror=function(){this.style.display='none';var n=this.nextElementSibling;if(n)n.style.display='inline';};">
                <span class="tree-group-icon" style="display:none">📂</span>`;
@@ -1624,7 +1701,7 @@ function closeDetail() {
 function manualSrc() {
     return window.MyWallI18n?.getUiLang() === "zh"
         ? "/static/docs/manual.html?v=3.16f"
-        : "/static/docs/manual.en.html?v=5.0b";
+        : "/static/docs/manual.en.html?v=5.0c";
 }
 
 function syncManualLinks() {
@@ -3284,7 +3361,7 @@ function renderGenreCloud() {
     const sizeMin = GENRE_CLOUD_SIZE_MIN;
     const sizeMax = Math.max(sizeMin + 6, Math.round(short * GENRE_CLOUD_MAX_RATIO));
     const active = ($("#filter-genre")?.value || "").trim();
-    const ordered = [...counts].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "zh"));
+    const ordered = [...counts].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, uiLocaleTag()));
     root.innerHTML = ordered.map(item => {
         const st = genreCloudStyle(item.count, minCount, maxCount, sizeMin, sizeMax);
         const isActive = item.label === active;
@@ -3498,6 +3575,7 @@ function applyGenreFromCloud(label) {
 async function openUploadModal() {
     if (!requireEditUnlocked()) return;
     $("#upload-modal").classList.remove("hidden");
+    refreshDynamicUi();
     // 加载已有图片
     try {
         const data = await api("/images");
@@ -3518,7 +3596,7 @@ function closeUploadModal() {
     state.existingImages = [];
     state.existingSelected = {};
     $("#btn-start-upload").disabled = true;
-    $("#btn-start-upload").textContent = "开始上传并分析";
+    $("#btn-start-upload").textContent = tr("upload.start");
     placementState.images = [];
     placementState.rects = {};
     placementState.activeImageId = null;
@@ -3585,16 +3663,16 @@ function renderExistingPhotos() {
         const checked = state.existingSelected[img.id] ? "checked" : "";
         const selClass = state.existingSelected[img.id] ? "selected" : "";
         const boxBadge = img.has_spine_boxes
-            ? `<span class="existing-photo-box-badge" title="已保存 ${img.spine_box_count || 0} 个碟脊框">${img.spine_box_count || 0}</span>`
+            ? `<span class="existing-photo-box-badge" title="${tr("upload.savedBoxes", { count: img.spine_box_count || 0 })}">${img.spine_box_count || 0}</span>`
             : "";
         return `
         <div class="existing-photo-item ${selClass}" id="existing-photo-${img.id}"
-             title="${escapeHtml(label)}${img.has_spine_boxes ? ` · 已存 ${img.spine_box_count} 框` : ""}"
+             title="${escapeHtml(label)}${img.has_spine_boxes ? tr("upload.storedBoxes", { count: img.spine_box_count }) : ""}"
              onclick="toggleExistingPhoto(${img.id}, event)">
             <input type="checkbox" class="existing-photo-checkbox" ${checked}
                    onchange="onExistingPhotoCheckbox(${img.id}, this.checked, event)">
             ${boxBadge}
-            <button type="button" class="existing-photo-edit-boxes" title="修正碟脊框"
+            <button type="button" class="existing-photo-edit-boxes" title=tr("dialog.spineBoxes")
                     onclick="openSpineBoxesEditor(${img.id}, event)">${DISC_CARD_ICONS.crop}</button>
             <img src="${img.url}" alt="${escapeHtml(label)}" loading="lazy" onerror="this.style.display='none'">
             <div class="existing-photo-label">${escapeHtml(short)}</div>
@@ -3652,24 +3730,24 @@ function updateExistingPhotosActions() {
     if (!selectBtn || !label || !reprocessBtn || !deleteBtn) return;
 
     if (total > 0 && count === total) {
-        selectBtn.textContent = "☑ 取消全选";
+        selectBtn.textContent = `☑ ${tr("action.deselectAll")}`;
     } else {
-        selectBtn.textContent = count > 0 ? `☑ 已选 ${count}` : "☐ 全选";
+        selectBtn.textContent = count > 0 ? `☑ ${tr("action.selectCount", { count })}` : `☐ ${tr("action.selectAll")}`;
     }
 
-    label.textContent = count > 0 ? `已选中 ${count} 张` : "未选中";
+    label.textContent = count > 0 ? tr("status.selectedCount", { count }) : tr("status.noSelection");
     reprocessBtn.disabled = count === 0;
     deleteBtn.disabled = count === 0;
-    setBtnLabel(reprocessBtn, count > 0 ? `重新分析选中的 ${count} 张` : "重新分析选中的");
-    setBtnLabel(deleteBtn, count > 0 ? `删除选中的 ${count} 张` : "删除选中的");
+    setBtnLabel(reprocessBtn, count > 0 ? tr("upload.reprocessSelectedCount", { count }) : tr("upload.reprocessSelected"));
+    setBtnLabel(deleteBtn, count > 0 ? tr("upload.deleteSelectedCount", { count }) : tr("upload.deleteSelected"));
 
     if (editBoxesBtn) {
         editBoxesBtn.disabled = count !== 1;
-        setBtnLabel(editBoxesBtn, count === 1 ? "修正碟脊框" : "修正碟脊框（选 1 张）");
+        setBtnLabel(editBoxesBtn, count === 1 ? tr("upload.editSpineBoxes") : tr("upload.editSpineBoxesPickOne"));
     }
     if (stage2Btn) {
         stage2Btn.disabled = count === 0;
-        setBtnLabel(stage2Btn, count > 0 ? `Stage2 识别 ${count} 张` : "Stage2 识别");
+        setBtnLabel(stage2Btn, count > 0 ? tr("upload.stage2Count", { count }) : tr("upload.stage2"));
     }
 }
 
@@ -3682,21 +3760,21 @@ function updateUploadButton() {
     if (hasNewFiles) {
         btn.disabled = false;
         if (selectedCount > 0) {
-            btn.textContent = `上传新照片并分析 (新${state.uploadFiles.length}张 + 选中${selectedCount}张)`;
+            btn.textContent = tr("upload.uploadNewAndSelected", { newCount: state.uploadFiles.length, selCount: selectedCount });
         } else if (hasExisting) {
-            btn.textContent = `上传新照片并分析所有 (新${state.uploadFiles.length}张 + 已有${state.existingImages.length}张)`;
+            btn.textContent = tr("upload.uploadNewAndAll", { newCount: state.uploadFiles.length, existCount: state.existingImages.length });
         } else {
-            btn.textContent = `开始上传并分析 (${state.uploadFiles.length} 张)`;
+            btn.textContent = tr("upload.startCount", { count: state.uploadFiles.length });
         }
     } else if (selectedCount > 0) {
         btn.disabled = false;
-        btn.textContent = `重新分析选中的 ${selectedCount} 张`;
+        btn.textContent = tr("upload.reanalyzeSelectedOnly", { count: selectedCount });
     } else if (hasExisting) {
         btn.disabled = false;
-        btn.textContent = `重新分析已有照片 (${state.existingImages.length} 张)`;
+        btn.textContent = tr("upload.reanalyzeExisting", { count: state.existingImages.length });
     } else {
         btn.disabled = true;
-        btn.textContent = "开始上传并分析";
+        btn.textContent = tr("upload.start");
     }
 }
 
@@ -3750,7 +3828,7 @@ async function startUploadAndAnalyze() {
 
         if (hasNewFiles) {
             // 上传新文件
-            textEl.textContent = "正在上传图片...";
+            textEl.textContent = tr("upload.uploading");
             const formData = new FormData();
             state.uploadFiles.forEach(f => formData.append("images", f));
             formData.append("type", "closeup");
@@ -3766,13 +3844,13 @@ async function startUploadAndAnalyze() {
             analyzeImages = batchData.images;
             total = batchData.total;
             progressFill.style.width = "10%";
-            textEl.textContent = `已上传 ${total} 张，正在分析中...`;
+            textEl.textContent = tr("upload.uploadedAnalyzing", { count: total });
 
             updateAnalyzingDetail(analyzeImages);
 
         } else if (hasExisting) {
             // 重新分析已有照片（优先选中项）
-            textEl.textContent = "正在重新分析已有照片...";
+            textEl.textContent = tr("upload.reanalyzingExisting");
             const imageIds = existingIdsToAnalyze;
 
             const reprocessResult = await api("/images/batch-reprocess", {
@@ -3784,7 +3862,7 @@ async function startUploadAndAnalyze() {
             analyzeImages = reprocessResult.images;
             total = reprocessResult.total;
             progressFill.style.width = "10%";
-            textEl.textContent = `正在分析 ${total} 张已有照片...`;
+            textEl.textContent = tr("upload.analyzingExisting", { count: total });
 
             updateAnalyzingDetail(analyzeImages);
         }
@@ -3809,7 +3887,7 @@ async function startUploadAndAnalyze() {
             const total2 = reprocessResult.total;
 
             updateAnalyzingDetail(analyzeImages2);
-            textEl.textContent = `正在分析已有 ${total2} 张照片...`;
+            textEl.textContent = tr("upload.analyzingExisting", { count: total2 });
             await pollBatchProgress(batchId2, total2, progressFill, textEl, detailEl);
 
             const status2 = await api(`/batch/process/${batchId2}`);
@@ -3831,8 +3909,8 @@ async function startUploadAndAnalyze() {
         renderMatchResults();
 
     } catch (e) {
-        textEl.textContent = "处理失败: " + e.message;
-        showToast("处理失败: " + e.message, "error");
+        textEl.textContent = tr("toast.processFailed", { message: e.message });
+        showToast(tr("toast.processFailed", { message: e.message }), "error");
     }
 }
 
@@ -3840,10 +3918,10 @@ async function reprocessSelectedExistingPhotos() {
     if (!requireEditUnlocked()) return;
     const ids = getSelectedExistingIds();
     if (ids.length === 0) {
-        showToast("请先选中要重新分析的照片", "error");
+        showToast(tr("toast.selectPhotosToAnalyze"), "error");
         return;
     }
-    if (!confirm(`确定重新分析选中的 ${ids.length} 张照片？原有识别结果将被清除。`)) return;
+    if (!confirm(tr("confirm.reprocessBatch", { count: ids.length }))) return;
     // 主流程已支持“有选中则只分析选中”
     await startUploadAndAnalyze();
 }
@@ -3852,10 +3930,10 @@ async function deleteSelectedExistingPhotos() {
     if (!requireEditUnlocked()) return;
     const ids = getSelectedExistingIds();
     if (ids.length === 0) {
-        showToast("请先选中要删除的照片", "error");
+        showToast(tr("toast.selectPhotosToDelete"), "error");
         return;
     }
-    if (!confirm(`确定永久删除选中的 ${ids.length} 张照片及其关联的所有碟片？此操作不可恢复！`)) return;
+    if (!confirm(tr("confirm.deleteBatch", { count: ids.length }))) return;
 
     const deleteBtn = $("#btn-existing-delete");
     const reprocessBtn = $("#btn-existing-reprocess");
@@ -3868,7 +3946,7 @@ async function deleteSelectedExistingPhotos() {
             body: { image_ids: ids },
         });
 
-        showToast(`成功删除 ${result.count} 张图片`, "success");
+        showToast(tr("toast.batchDeleteSuccess", { count: result.count }), "success");
         const deletedSet = new Set(result.deleted || ids);
         state.existingImages = state.existingImages.filter(img => !deletedSet.has(img.id));
         state.existingSelected = {};
@@ -3878,7 +3956,7 @@ async function deleteSelectedExistingPhotos() {
         await loadFilters();
         await loadStats();
     } catch (e) {
-        showToast("批量删除失败: " + e.message, "error");
+        showToast(tr("toast.deleteFailed", { message: e.message }), "error");
         updateExistingPhotosActions();
     }
 }
@@ -3895,15 +3973,16 @@ function openSpineBoxesEditor(imageId, evt) {
     const title = $("#spine-boxes-modal-title");
     if (title) {
         const name = img ? (img.display_name || img.original_filename || img.filename) : `#${imageId}`;
-        setIconTitle(title, "crop", `修正碟脊框 — ${name}`);
+        setIconTitle(title, "crop", `${tr("dialog.spineBoxes")} — ${name}`);
     }
     const iframe = $("#spine-boxes-iframe");
     const modal = $("#spine-boxes-modal");
     if (!iframe || !modal) {
-        showToast("编辑器入口未就绪", "error");
+        showToast(tr("toast.editorNotReady"), "error");
         return;
     }
-    iframe.src = `/static/spine_boxes_editor.html?embed=1&image_id=${imageId}`;
+    iframe.src = `/static/spine_boxes_editor.html?v=5.0c&embed=1&image_id=${imageId}`;
+    refreshDynamicUi();
     modal.classList.remove("hidden");
 }
 
@@ -3918,7 +3997,7 @@ async function openSpineBoxesEditorForSelection() {
     if (!requireEditUnlocked()) return;
     const ids = getSelectedExistingIds();
     if (ids.length !== 1) {
-        showToast("请先勾选恰好一张照片", "error");
+        showToast(tr("toast.selectOnePhoto"), "error");
         return;
     }
     openSpineBoxesEditor(ids[0]);
@@ -3949,7 +4028,7 @@ window.addEventListener("message", (e) => {
             img.spine_box_count = data.spineCount || 0;
             renderExistingPhotos();
         }
-        showToast(`碟脊框已保存（${data.spineCount || 0} 框）`, "success");
+        showToast(tr("toast.spineBoxesSaved", { count: data.spineCount || 0 }), "success");
     }
 });
 
@@ -3957,7 +4036,7 @@ async function runStage2OnSelected() {
     if (!requireEditUnlocked()) return;
     const ids = getSelectedExistingIds();
     if (ids.length === 0) {
-        showToast("请先选中要识别的照片", "error");
+        showToast(tr("toast.selectPhotosStage2"), "error");
         return;
     }
     const missing = ids.filter(id => {
@@ -3965,12 +4044,11 @@ async function runStage2OnSelected() {
         return !img || !img.has_spine_boxes;
     });
     if (missing.length) {
-        showToast(`有 ${missing.length} 张尚未保存碟脊框，请先「修正碟脊框」并保存`, "error");
+        showToast(tr("toast.missingSpineBoxes", { count: missing.length }), "error");
         return;
     }
     if (!confirm(
-        `对选中的 ${ids.length} 张跑 Stage2（视觉读标题 + TMDb 匹配）并写入碟片库？\n` +
-        `将覆盖同图已有 discs（reset）。需 LM Studio 与 TMDb 可用。`
+        tr("confirm.stage2", { count: ids.length })
     )) return;
 
     $("#step-upload").classList.add("hidden");
@@ -3985,7 +4063,7 @@ async function runStage2OnSelected() {
     const textEl = $("#analyzing-text");
     const detailEl = $("#analyzing-detail");
     if (progressFill) progressFill.style.width = "0%";
-    if (textEl) textEl.textContent = "Stage2 识别中…";
+    if (textEl) textEl.textContent = tr("upload.stage2Running");
     if (detailEl) {
         detailEl.innerHTML = ids.map(id => {
             const img = state.existingImages.find(x => x.id === id) || {};
@@ -4018,7 +4096,7 @@ async function runStage2OnSelected() {
             const task = st;
             const pct = task.progress || 0;
             if (progressFill) progressFill.style.width = `${pct}%`;
-            if (textEl) textEl.textContent = task.message || `Stage2 进度 ${pct}%`;
+            if (textEl) textEl.textContent = task.message || tr("upload.stage2Progress", { pct });
             const results = task.results || [];
             results.forEach(r => {
                 const el = document.getElementById(`stage2-item-${r.image_id}`);
@@ -4028,9 +4106,9 @@ async function runStage2OnSelected() {
                 el.classList.toggle("is-error", !!r.error);
                 const label = el.querySelector(".analyzing-label");
                 if (label) {
-                    if (r.error) label.textContent = "失败";
-                    else if (r.ok) label.textContent = `完成 · ${r.matched || 0}/${r.spine_count || 0} 匹配 · 导入 ${r.imported || 0}`;
-                    else label.textContent = "处理中";
+                    if (r.error) label.textContent = tr("status.failed");
+                    else if (r.ok) label.textContent = tr("upload.stage2ItemDone", { matched: r.matched || 0, spines: r.spine_count || 0, imported: r.imported || 0 });
+                    else label.textContent = tr("status.processing");
                 }
             });
             if (task.status === "done" || task.status === "error") {
@@ -4038,9 +4116,9 @@ async function runStage2OnSelected() {
                 const okCount = (task.results || []).filter(r => r.ok).length;
                 const failCount = (task.results || []).filter(r => !r.ok).length;
                 if (task.status === "error") {
-                    showToast(task.message || "Stage2 失败", "error");
+                    showToast(task.message || tr("toast.stage2Failed", { message: "" }), "error");
                 } else {
-                    showToast(`Stage2 完成：成功 ${okCount}，失败 ${failCount}`, failCount ? "error" : "success");
+                    showToast(tr("toast.stage2Done", { ok: okCount, fail: failCount }), failCount ? "error" : "success");
                 }
                 await loadDiscs();
                 await loadFilters();
@@ -4054,8 +4132,8 @@ async function runStage2OnSelected() {
             }
         }
     } catch (e) {
-        if (textEl) textEl.textContent = "Stage2 失败: " + e.message;
-        showToast("Stage2 失败: " + e.message, "error");
+        if (textEl) textEl.textContent = tr("toast.stage2Failed", { message: e.message });
+        showToast(tr("toast.stage2Failed", { message: e.message }), "error");
         $("#step-analyzing").classList.add("hidden");
         $("#step-upload").classList.remove("hidden");
         $$("#steps-indicator .step").forEach(s => s.classList.remove("active", "done"));
@@ -4067,9 +4145,9 @@ function updateAnalyzingDetail(images) {
     const detail = $("#analyzing-detail");
     detail.innerHTML = images.map((img, idx) => {
         const url = img.url || (img.filename ? `/uploads/${img.filename}` : "");
-        const name = img.original_filename || img.filename || `图片 ${img.image_id}`;
+        const name = img.original_filename || img.filename || `Image #${img.image_id}`;
         const stateClass = idx === 0 ? "is-processing" : "is-pending";
-        const label = idx === 0 ? "分析中…" : "等待中";
+        const label = idx === 0 ? tr("status.analyzing") : tr("status.waiting");
         return `<div class="analyzing-item ${stateClass}" id="item-${img.image_id}" data-image-id="${img.image_id}">
             <div class="analyzing-thumb">
                 <img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" loading="lazy">
@@ -4116,23 +4194,23 @@ function refreshAnalyzingCards(detailEl, results) {
             if (r.analysis && r.analysis.best_title) {
                 extra = `<span class="item-title">${escapeHtml(r.analysis.best_title)}</span>`;
             } else if (r.disc_count !== undefined) {
-                extra = `<span class="item-title">识别到 ${r.disc_count} 张</span>`;
+                extra = `<span class="item-title">${tr("upload.analyzeItemTitle", { count: r.disc_count })}</span>`;
             }
-            setAnalyzingItemState(card, "is-done", "完成", extra);
+            setAnalyzingItemState(card, "is-done", tr("status.done"), extra);
             return;
         }
 
         if (r && r.status === "error") {
-            const err = escapeHtml(r.error || "识别失败");
-            setAnalyzingItemState(card, "is-error", "失败", `<span class="item-error">${err}</span>`);
+            const err = escapeHtml(r.error || tr("upload.analyzeFail"));
+            setAnalyzingItemState(card, "is-error", tr("status.failed"), `<span class="item-error">${err}</span>`);
             return;
         }
 
         if (!markedProcessing) {
-            setAnalyzingItemState(card, "is-processing", "分析中…");
+            setAnalyzingItemState(card, "is-processing", tr("status.analyzing"));
             markedProcessing = true;
         } else {
-            setAnalyzingItemState(card, "is-pending", "等待中");
+            setAnalyzingItemState(card, "is-pending", tr("status.waiting"));
         }
     });
 }
@@ -4143,23 +4221,23 @@ async function pollBatchProgress(batchId, total, progressFill, textEl, detailEl,
         const status = await api(`/batch/process/${batchId}`);
         const pct = status.progress || 0;
         progressFill.style.width = `${Math.min(100, (10 + pct * 0.9) * weightScale)}%`;
-        textEl.textContent = `分析中... ${status.completed || 0}/${total}`;
+        textEl.textContent = tr("upload.analyzingProgress", { done: status.completed || 0, total });
 
         refreshAnalyzingCards(detailEl, status.results);
 
         if (status.status === "done" || status.status === "error") {
             state.analysisResults = status.results || [];
             progressFill.style.width = "100%";
-            textEl.textContent = `分析完成！共 ${total} 张`;
+            textEl.textContent = tr("upload.analyzingComplete", { count: total });
             refreshAnalyzingCards(detailEl, status.results);
             // 全部结束后不再保留 processing 态
             detailEl.querySelectorAll(".analyzing-item.is-processing").forEach(card => {
-                setAnalyzingItemState(card, "is-pending", "等待中");
+                setAnalyzingItemState(card, "is-pending", tr("status.waiting"));
             });
             return;
         }
     }
-    throw new Error("分析超时");
+    throw new Error(tr("toast.reanalyzeTimeout"));
 }
 
 function sleep(ms) {
@@ -4169,17 +4247,17 @@ function sleep(ms) {
 // ===== 匹配结果渲染 =====
 
 function matchStatusLabel(sel, isAuto, isRejected) {
-    if (isRejected) return { text: "已拒绝", cls: "error", title: "此碟片不会保存" };
+    if (isRejected) return { text: tr("match.rejected"), cls: "error", title: tr("match.rejectedHint") };
     if (isAuto && sel && !sel.suggested) {
-        return { text: "自动匹配 · 将保存", cls: "matched", title: "高置信自动匹配的 TMDb 候选，确认后会写入片库；也可点击其他候选更换" };
+        return { text: tr("match.autoMatched"), cls: "matched", title: tr("match.autoMatchedHint") };
     }
     if (sel && !sel.suggested) {
-        return { text: "已选择 · 将保存", cls: "matched", title: "已为该碟片选定 TMDb 候选，确认后会写入片库" };
+        return { text: tr("match.selected"), cls: "matched", title: tr("match.selectedHint") };
     }
     if (sel && sel.suggested) {
-        return { text: "建议候选 · 点击可改", cls: "pending", title: "系统预选了首个候选，点击其他卡片可更换；确认后才会保存" };
+        return { text: tr("match.suggested"), cls: "pending", title: tr("match.suggestedHint") };
     }
-    return { text: "未选择", cls: "pending", title: "请点击下方某个 TMDb 候选以选中保存" };
+    return { text: tr("match.unselected"), cls: "pending", title: tr("match.unselectedHint") };
 }
 
 function renderMatchResults() {
@@ -4221,8 +4299,8 @@ function renderMatchResults() {
         const discs = r.discs || [];
         const displayName = r.original_filename || r.filename;
         const photoBadge = r.status === "error"
-            ? '<span class="match-photo-badge error">识别失败</span>'
-            : `<span class="match-photo-badge">识别完成 · ${discs.length} 张</span>`;
+            ? `<span class="match-photo-badge error">${tr("match.photoFailed")}</span>`
+            : `<span class="match-photo-badge">${tr("match.photoDone", { count: discs.length })}</span>`;
 
         let discsHtml = "";
         discs.forEach((d, discIdx) => {
@@ -4249,45 +4327,45 @@ function renderMatchResults() {
                              data-key="${key}" data-candidate-idx="${ci}" data-tmdb-id="${c.tmdb_id}"
                              data-media-type="${cType}"
                              onclick="selectCandidateByKey('${key}', ${ci}, this)"
-                             title="点击选中此 TMDb 候选用于保存">
+                             title="${tr("match.clickToSelect")}">
                             <div class="match-candidate-main">
                                 <span class="match-candidate-pick" aria-hidden="true">✓</span>
                                 ${c.poster_url ? `<img class="match-candidate-poster" src="${c.poster_url}" alt="" loading="lazy" onerror="this.style.display='none'">` : '<div class="match-candidate-poster">🎬</div>'}
                                 <div class="match-candidate-info">
                                     <div class="match-candidate-title">
                                         ${escapeHtml(c.title_cn)}${tmdbTypeBadgeHtml(cType)}
-                                        ${c.poster_url && r.image_id ? `<button type="button" class="visual-compare-btn" onclick="event.stopPropagation();visualCompare(${r.image_id}, ${imgIdx}, ${discIdx}, '${posterAttr}', '${titleAttr}', '${c.year || ''}', '${compareId}')" title="用视觉模型比对碟脊与海报">${DISC_CARD_ICONS.eye}<span>视觉比对</span></button>` : ''}
+                                        ${c.poster_url && r.image_id ? `<button type="button" class="visual-compare-btn" onclick="event.stopPropagation();visualCompare(${r.image_id}, ${imgIdx}, ${discIdx}, '${posterAttr}', '${titleAttr}', '${c.year || ''}', '${compareId}')" title="${tr("match.visualCompare")}">${DISC_CARD_ICONS.eye}<span>${tr("match.visualCompare")}</span></button>` : ''}
                                     </div>
-                                    <div class="match-candidate-meta">${escapeHtml(c.title_en)} | ${c.year} | ⭐${(c.rating || 0).toFixed(1)} | ${c.vote_count || 0}票</div>
-                                    ${isSelected ? '<div class="match-candidate-hint">当前选中 · 将随「确认并保存」写入</div>' : '<div class="match-candidate-hint">点击选中</div>'}
+                                    <div class="match-candidate-meta">${escapeHtml(c.title_en)} | ${c.year} | ⭐${(c.rating || 0).toFixed(1)} | ${tr("meta.votes", { count: c.vote_count || 0 })}</div>
+                                    ${isSelected ? `<div class="match-candidate-hint">${tr("match.selectedSaveHint")}</div>` : `<div class="match-candidate-hint">${tr("match.clickToSelect")}</div>`}
                                 </div>
                             </div>
                             <div class="visual-compare-result" id="${compareId}"></div>
                         </div>`;
                 }).join("");
             } else {
-                candidatesHtml = '<div class="empty-state" style="padding:12px">未找到匹配，可手动搜索</div>';
+                candidatesHtml = `<div class="empty-state" style="padding:12px">${tr("match.noMatchManual")}</div>`;
             }
 
             discsHtml += `
                 <div class="disc-entry" data-img-idx="${imgIdx}" data-disc-idx="${discIdx}"
                      style="margin-bottom:8px;padding:8px;background:var(--bg-hover);border-radius:6px${isRejected ? ';opacity:0.35;text-decoration:line-through' : ''}">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:8px">
-                        <span style="font-size:13px;font-weight:600">${escapeHtml(d.title_cn || d.title_en || '未识别')}</span>
+                        <span style="font-size:13px;font-weight:600">${escapeHtml(d.title_cn || d.title_en || tr('match.unrecognized'))}</span>
                         <span class="match-card-status ${status.cls}" title="${escapeHtml(status.title)}">${status.text}</span>
                     </div>
                     <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">
                         ${d.title_en ? escapeHtml(d.title_en) + ' | ' : ''}
                         ${d.year || ''}
-                        ${d.confidence ? ' | 置信度: ' + d.confidence : ''}
+                        ${d.confidence ? ' | ' + tr('match.confidence', { value: d.confidence }) : ''}
                         ${renderSourceBadge(d.source, d.confidence)}
-                        ${hasSpineBbox(d) ? ' · <span style="color:var(--green)">已标定碟脊</span>' : ' · <span style="color:var(--gold)">未标定碟脊</span>'}
+                        ${hasSpineBbox(d) ? ' · <span style="color:var(--green)">' + tr('match.spineMarked') + '</span>' : ' · <span style="color:var(--gold)">' + tr('match.spineMissing') + '</span>'}
                     </div>
                     <div class="match-candidates">${candidatesHtml}</div>
                     <div class="disc-manual-actions">
-                        <button type="button" class="disc-tool-btn" onclick="event.stopPropagation();openSpineCalibrator(${imgIdx}, ${discIdx})" title="在原图上框选碟脊，供视觉比对使用">${DISC_CARD_ICONS.crop}<span>标定碟脊</span></button>
-                        <button type="button" class="disc-tool-btn" onclick="event.stopPropagation();openManualTmdbSearch(${imgIdx}, ${discIdx})" title="手动输入片名搜索 TMDb">${DISC_CARD_ICONS.search}<span>手动搜索 TMDb</span></button>
-                        <button type="button" class="disc-reject-btn" onclick="event.stopPropagation();rejectDisc(${imgIdx}, ${discIdx})" title="拒绝此碟片，不保存" ${isRejected ? "disabled" : ""}>${isRejected ? "已拒绝" : "✕ 拒绝"}</button>
+                        <button type="button" class="disc-tool-btn" onclick="event.stopPropagation();openSpineCalibrator(${imgIdx}, ${discIdx})" title="${tr('match.calibrateSpine')}">${DISC_CARD_ICONS.crop}<span>${tr("match.calibrateSpine")}</span></button>
+                        <button type="button" class="disc-tool-btn" onclick="event.stopPropagation();openManualTmdbSearch(${imgIdx}, ${discIdx})" title="${tr('match.manualSearch')}">${DISC_CARD_ICONS.search}<span>${tr("match.manualSearch")}</span></button>
+                        <button type="button" class="disc-reject-btn" onclick="event.stopPropagation();rejectDisc(${imgIdx}, ${discIdx})" title="${tr('match.rejectedHint')}" ${isRejected ? "disabled" : ""}>${isRejected ? tr("match.rejectedBtn") : tr("match.reject")}</button>
                     </div>
                 </div>`;
         });
@@ -4298,15 +4376,15 @@ function renderMatchResults() {
                     ${imgSrc ? `<img class="match-card-image" src="${imgSrc}" alt="" loading="lazy">` : ""}
                     <div class="match-card-info">
                         <div class="match-card-filename" title="${escapeHtml(r.filename)}">${escapeHtml(displayName)}</div>
-                        <div class="match-card-detected">识别到 <strong>${discs.length}</strong> 张碟片</div>
+                        <div class="match-card-detected">${tr("match.detectedDiscs", { count: discs.length })}</div>
                     </div>
                     ${photoBadge}
                 </div>
                 <div class="match-card-expand">
-                    ${discs.length > 0 ? discsHtml : '<div class="empty-state" style="padding:12px">未能识别到碟片</div>'}
+                    ${discs.length > 0 ? discsHtml : `<div class="empty-state" style="padding:12px">${tr("toast.noDiscsInRegion")}</div>`}
                     <div class="match-card-actions" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">
-                        <button type="button" class="btn btn-secondary" onclick="event.stopPropagation();openRegionReanalyze(${imgIdx})" title="在原图上框选任意区域并重新识别">框选区域重新识别</button>
-                        <button type="button" class="btn btn-secondary" onclick="event.stopPropagation();searchManualForDisc('${escapeHtml(r.filename)}', ${imgIdx})">${DISC_CARD_ICONS.search}<span class="btn-label">手动搜索</span></button>
+                        <button type="button" class="btn btn-secondary" onclick="event.stopPropagation();openRegionReanalyze(${imgIdx})" title="${tr('match.regionReanalyze')}">${tr("match.regionReanalyze")}</button>
+                        <button type="button" class="btn btn-secondary" onclick="event.stopPropagation();searchManualForDisc('${escapeHtml(r.filename)}', ${imgIdx})">${DISC_CARD_ICONS.search}<span class="btn-label">${tr("match.manualSearch")}</span></button>
                     </div>
                 </div>
             </div>`;
@@ -4327,7 +4405,7 @@ function renderSourceBadge(source, confidence) {
     let color, label, icon;
     if (source === 'vision') {
         color = 'var(--green)';
-        label = '视觉模型';
+        label = tr('source.vision');
         icon = '👁';
     } else if (source === 'ocr') {
         color = 'var(--gold)';
@@ -4342,7 +4420,7 @@ function renderSourceBadge(source, confidence) {
         label = source;
         icon = '❓';
     }
-    return ` <span class="source-badge" style="color:${color};border-color:${color}" title="来源: ${label}">${icon} ${label}</span>`;
+    return ` <span class="source-badge" style="color:${color};border-color:${color}" title="${tr("source.from", { label })}">${icon} ${label}</span>`;
 }
 
 function rejectDisc(imgIdx, discIdx) {
@@ -4365,19 +4443,19 @@ function rejectDisc(imgIdx, discIdx) {
     discEl.style.textDecoration = 'line-through';
     const rejectBtn = discEl.querySelector('.disc-reject-btn');
     if (rejectBtn) {
-        rejectBtn.textContent = '已拒绝';
+        rejectBtn.textContent = tr("match.rejectedBtn");
         rejectBtn.disabled = true;
     }
     discEl.querySelectorAll(".match-candidate").forEach(c => {
         c.classList.remove("selected", "is-auto");
         const hint = c.querySelector(".match-candidate-hint");
-        if (hint) hint.textContent = "点击选中";
+        if (hint) hint.textContent = tr("match.clickToSelect");
     });
     const statusEl = discEl.querySelector(".match-card-status");
     if (statusEl) {
-        statusEl.textContent = "已拒绝";
+        statusEl.textContent = tr("match.rejected");
         statusEl.className = "match-card-status error";
-        statusEl.title = "此碟片不会保存";
+        statusEl.title = tr("match.rejectedHint");
     }
 
     updateMatchSummary();
@@ -4403,9 +4481,8 @@ function updateMatchSummary() {
 
     const pendingCount = totalDiscs - selectedCount;
     $("#match-summary").innerHTML = `
-        <span>照片: <strong>${state.analysisResults.length}</strong> 张 · 碟片: <strong>${totalDiscs}</strong> 张</span>
-        <span>已选: <strong class="auto-count">${selectedCount}</strong> · 自动: <strong>${autoMatchedCount}</strong> · 未选: <strong class="manual-count">${pendingCount}</strong>
-        ${rejectedCount > 0 ? ` · 已拒绝: <strong style="color:var(--accent)">${rejectedCount}</strong>` : ''}</span>
+        <span>${tr("match.summaryPhotos", { photos: state.analysisResults.length, discs: totalDiscs })}</span>
+        <span>${tr("match.summarySelected", { selected: selectedCount, auto: autoMatchedCount, pending: pendingCount })}${rejectedCount > 0 ? tr("match.summaryRejected", { count: rejectedCount }) : ""}</span>
     `;
 }
 
@@ -4417,8 +4494,8 @@ function updateConfirmButton() {
     }).length;
     btn.disabled = count === 0;
     setBtnLabel(btn, count > 0
-        ? `确认并保存已选 ${count} 项`
-        : "确认并保存已选（请先点选候选）");
+        ? tr("match.confirmSaveCount", { count })
+        : tr("match.confirmPickFirst"));
 }
 
 function selectCandidateByKey(key, candidateIdx, el) {
@@ -4436,18 +4513,18 @@ function selectCandidateByKey(key, candidateIdx, el) {
         const rejectBtn = parent.querySelector(".disc-reject-btn");
         if (rejectBtn) {
             rejectBtn.disabled = false;
-            rejectBtn.textContent = "✕ 拒绝";
+            rejectBtn.textContent = tr("match.reject");
         }
     }
 
     parent.querySelectorAll(".match-candidate").forEach(c => {
         c.classList.remove("selected", "is-auto");
         const hint = c.querySelector(".match-candidate-hint");
-        if (hint) hint.textContent = "点击选中";
+        if (hint) hint.textContent = tr("match.clickToSelect");
     });
     el.classList.add("selected");
     const selectedHint = el.querySelector(".match-candidate-hint");
-    if (selectedHint) selectedHint.textContent = "当前选中 · 将随「确认并保存」写入";
+    if (selectedHint) selectedHint.textContent = tr("match.selectedSaveHint");
 
     const tmdbId = parseInt(el.dataset.tmdbId, 10);
     if (!tmdbId || isNaN(tmdbId)) return;
@@ -4462,7 +4539,7 @@ function selectCandidateByKey(key, candidateIdx, el) {
 
     const statusEl = parent.querySelector(".match-card-status");
     if (statusEl) {
-        statusEl.textContent = "已选择 · 将保存";
+        statusEl.textContent = tr("match.selected");
         statusEl.className = "match-card-status matched";
         statusEl.title = "已为该碟片选定 TMDb 候选，确认后会写入片库";
     }
@@ -4524,7 +4601,7 @@ function toggleMatchCard(idx) {
 async function verifyWithVision(resultIdx) {
     const r = state.analysisResults[resultIdx];
     if (!state.selectedMatches || !state.selectedMatches[resultIdx]) {
-        showToast("请先选择一个 TMDb 匹配候选", "error");
+        showToast(tr("toast.selectMatchFirst"), "error");
         return;
     }
 
@@ -4533,7 +4610,7 @@ async function verifyWithVision(resultIdx) {
     const imageId = r.image_id;
 
     $("#verify-modal").classList.remove("hidden");
-    $("#verify-body").innerHTML = '<div class="verify-loading">🔄 正在用视觉模型比对图片...</div>';
+    $("#verify-body").innerHTML = `<div class="verify-loading">${tr("verify.loadingShort")}</div>`;
 
     try {
         const verifyTask = await api(`/images/${imageId}/verify-match`, {
@@ -4551,26 +4628,26 @@ async function verifyWithVision(resultIdx) {
                 break;
             }
             if (status.status === "error") {
-                throw new Error(status.result?.error || "验证失败");
+                throw new Error(status.result?.error || tr("toast.verifyFailed"));
             }
         }
 
-        if (!verifyResult) throw new Error("验证超时");
+        if (!verifyResult) throw new Error(tr("toast.verifyTimeout"));
 
         const isMatch = verifyResult.match;
         const conf = verifyResult.confidence || 0;
         const cls = isMatch ? "match-success" : "match-fail";
         const icon = isMatch ? "✅" : "❌";
-        const txt = isMatch ? "视觉匹配确认成功！" : "视觉匹配不通过";
+        const txt = isMatch ? tr("verify.success") : tr("verify.fail");
 
         $("#verify-body").innerHTML = `
             <div class="verify-result ${cls}">
                 <div class="verify-icon">${icon}</div>
                 <div class="verify-text">${txt}</div>
-                <div class="verify-confidence">置信度: ${(conf * 100).toFixed(0)}%</div>
+                <div class="verify-confidence">${tr("verify.confidence", { pct: (conf * 100).toFixed(0) })}</div>
                 <div class="verify-reason">${escapeHtml(verifyResult.reasoning || "")}</div>
                 <div class="verify-actions">
-                    <button class="btn btn-primary" onclick="$('#verify-modal').classList.add('hidden')">关闭</button>
+                    <button class="btn btn-primary" onclick="$('#verify-modal').classList.add('hidden')">${tr("action.close")}</button>
                 </div>
             </div>`;
 
@@ -4578,10 +4655,10 @@ async function verifyWithVision(resultIdx) {
         $("#verify-body").innerHTML = `
             <div class="verify-result match-fail">
                 <div class="verify-icon">⚠️</div>
-                <div class="verify-text">验证失败</div>
+                <div class="verify-text">${tr("toast.verifyFailed")}</div>
                 <div class="verify-reason">${escapeHtml(e.message)}</div>
                 <div class="verify-actions">
-                    <button class="btn btn-primary" onclick="$('#verify-modal').classList.add('hidden')">关闭</button>
+                    <button class="btn btn-primary" onclick="$('#verify-modal').classList.add('hidden')">${tr("action.close")}</button>
                 </div>
             </div>`;
     }
@@ -4593,7 +4670,7 @@ async function confirmAllMatches() {
         return !(state.rejectedDiscs && state.rejectedDiscs[key]);
     });
     if (entries.length === 0) {
-        showToast("请至少选择一个匹配结果（或取消拒绝后重选）", "error");
+        showToast(tr("toast.selectAtLeastOne"), "error");
         return;
     }
 
@@ -4628,15 +4705,15 @@ async function confirmAllMatches() {
     }
 
     if (items.length === 0) {
-        showToast("没有可保存的项目", "error");
+        showToast(tr("toast.nothingToSave"), "error");
         return;
     }
 
     try {
         $("#btn-confirm-all").disabled = true;
-        setBtnLabel($("#btn-confirm-all"), "正在保存...");
+        setBtnLabel($("#btn-confirm-all"), tr("match.saving"));
         const result = await api("/batch/confirm", { method: "POST", body: { items } });
-        showToast(`成功保存 ${result.count} 张碟片！`, "success");
+        showToast(tr("toast.savedDiscs", { count: result.count }), "success");
         await loadDiscs();
         await loadFilters();
         await loadStats();
@@ -4644,7 +4721,7 @@ async function confirmAllMatches() {
 
         showPlacementStep();
     } catch (e) {
-        showToast("保存失败: " + e.message, "error");
+        showToast(tr("toast.saveFailed", { message: e.message }), "error");
     } finally {
         updateConfirmButton();
     }
@@ -4654,6 +4731,7 @@ async function confirmAllMatches() {
 
 function showMatchModal(query, discId = null, resultIdx = null, options = null) {
     $("#match-modal").classList.remove("hidden");
+    refreshDynamicUi();
 
     const opts = options || {};
     const matchKey = opts.matchKey != null ? opts.matchKey : null;
@@ -4664,14 +4742,14 @@ function showMatchModal(query, discId = null, resultIdx = null, options = null) 
         <div style="margin-bottom:16px">
             <input type="text" id="match-search-input" value="${escapeHtml(query || "")}"
                    style="width:100%;padding:10px;background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);border-radius:var(--radius-sm);font-size:14px;font-family:var(--font)"
-                   placeholder="输入片名搜索…">
+                   placeholder="${tr("match.searchPlaceholder")}">
             <div class="tmdb-scope-bar" style="margin-top:10px">
                 <div class="tmdb-scope-row">
-                    <span class="tmdb-scope-label">类型</span>
+                    <span class="tmdb-scope-label">${tr("edit.scopeType")}</span>
                     ${tmdbScopeSegHtml("match-tmdb-scope", "all")}
                 </div>
                 <div class="tmdb-scope-row">
-                    <span class="tmdb-scope-label">来源</span>
+                    <span class="tmdb-scope-label">${tr("edit.scopeSource")}</span>
                     ${metaSourceSegHtml("match-meta-source", "all")}
                 </div>
             </div>
@@ -4679,16 +4757,16 @@ function showMatchModal(query, discId = null, resultIdx = null, options = null) 
                 <input type="text" id="match-year-input" value="${escapeHtml(String(preYear || ""))}"
                        inputmode="numeric" maxlength="4"
                        style="width:110px;padding:10px;background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);border-radius:var(--radius-sm);font-size:14px;font-family:var(--font)"
-                       placeholder="年份(可选)">
-                <button class="btn btn-primary" id="match-search-btn" style="flex:1;white-space:nowrap">按片名搜索</button>
+                       placeholder="${tr("match.yearOptional")}">
+                <button class="btn btn-primary" id="match-search-btn" style="flex:1;white-space:nowrap">${tr("match.searchBtn")}</button>
             </div>
-            ${forMatchFlow ? '<details class="edit-disc-hint" style="margin-top:8px"><summary>匹配说明</summary><p>入库仍需选 TMDb 候选（IMDb/TVDB 仅供对照）。默认全部类型 + 全部可用来源。</p></details>' : ''}
+            ${forMatchFlow ? `<details class="edit-disc-hint" style="margin-top:8px"><summary>${tr("match.helpTitle")}</summary><p>${tr("match.helpBody")}</p></details>` : ''}
         </div>
         <div id="match-results" class="match-results">
-            <div class="empty-state">输入片名后点击搜索</div>
+            <div class="empty-state">${tr("match.noResults")}</div>
         </div>
         <div id="match-actions" class="hidden" style="margin-top:16px;display:flex;gap:8px">
-            <button class="btn btn-primary" id="match-confirm-btn" data-edit-only>${DISC_CARD_ICONS.check}<span class="btn-label">${forMatchFlow ? "选为匹配候选" : "确认并保存"}</span></button>
+            <button class="btn btn-primary" id="match-confirm-btn" data-edit-only>${DISC_CARD_ICONS.check}<span class="btn-label">${forMatchFlow ? tr("match.pickCandidate") : tr("match.confirmSave")}</span></button>
         </div>`;
 
     let selectedMovie = null;
@@ -4706,7 +4784,7 @@ function showMatchModal(query, discId = null, resultIdx = null, options = null) 
 
         const providers = await loadMetaProviders();
         if (source !== "all" && !providers[source]?.enabled) {
-            showToast(providers[source]?.hint || "该来源不可用", "error");
+            showToast(providers[source]?.hint || tr("toast.sourceUnavailable"), "error");
             return;
         }
 
@@ -4735,7 +4813,7 @@ function showMatchModal(query, discId = null, resultIdx = null, options = null) 
             const errNotes = metaSearchErrorNotes(data);
             const skipHint = metaSkippedHint(data, source);
             if (!results.length) {
-                const tip = data.message || errNotes || "未找到匹配结果";
+                const tip = data.message || errNotes || tr("match.noResultsFound");
                 const extra = skipHint ? `<div class="empty-state" style="padding-top:0;font-size:12px;opacity:.75">${escapeHtml(skipHint)}</div>` : "";
                 resultsDiv.innerHTML = `<div class="empty-state">${escapeHtml(tip)}</div>${extra}`;
                 return;
@@ -4752,15 +4830,15 @@ function showMatchModal(query, discId = null, resultIdx = null, options = null) 
                     ${r.poster_url ? `<img class="match-poster" src="${escapeHtml(r.poster_url)}" alt="" loading="lazy">` : '<div class="match-poster" style="display:flex;align-items:center;justify-content:center;opacity:.45">—</div>'}
                     <div class="match-info">
                         <div class="match-title">${escapeHtml(r.title)}${sourceBadgeHtml(r.source)}${tmdbTypeBadgeHtml(r.media_type)}</div>
-                        <div class="match-meta">${escapeHtml(r.original_title || "")} | ${escapeHtml(String(r.year || ""))} | ⭐ ${(r.rating || 0).toFixed(1)}${r.vote_count != null ? ` | ${r.vote_count}票` : ""}</div>
-                        <div class="match-overview">${escapeHtml(r.overview || "暂无")}</div>
+                        <div class="match-meta">${escapeHtml(r.original_title || "")} | ${escapeHtml(String(r.year || ""))} | ⭐ ${(r.rating || 0).toFixed(1)}${r.vote_count != null ? ` | ${tr("meta.votes", { count: r.vote_count })}` : ""}</div>
+                        <div class="match-overview">${escapeHtml(r.overview || tr("detail.none"))}</div>
                     </div>
                 </div>`).join("");
 
             window._matchSearchResults = results;
             document.getElementById("match-actions").classList.remove("hidden");
         } catch (e) {
-            showToast("搜索失败: " + e.message, "error");
+            showToast(tr("toast.searchFailed", { message: e.message }), "error");
         }
     }
 
@@ -4792,14 +4870,14 @@ function showMatchModal(query, discId = null, resultIdx = null, options = null) 
         if (!requireEditUnlocked()) return;
         const idx = window._selectedMatchIdx;
         const picked = idx != null ? (window._matchSearchResults || [])[idx] : null;
-        if (!picked && !selectedMovie) { showToast("请先选择", "error"); return; }
+        if (!picked && !selectedMovie) { showToast(tr("toast.pickFirst"), "error"); return; }
         const src = picked ? candidateSourceOf(picked) : selectedSource;
         if (forMatchFlow && src !== "tmdb") {
-            showToast("Stage2 匹配入库请选择带 TMDb 徽章的候选；IMDb/TVDB 请用「手工建卡/编辑」", "error");
+            showToast(tr("toast.tmdbCandidateRequired"), "error");
             return;
         }
         if (!forMatchFlow && src !== "tmdb") {
-            showToast("此确认入库流程仅支持 TMDb 候选；请改用手工建卡", "error");
+            showToast(tr("toast.manualCardRequired"), "error");
             return;
         }
         selectedMovie = picked?.tmdb_id || selectedMovie;
@@ -4853,7 +4931,7 @@ function showMatchModal(query, discId = null, resultIdx = null, options = null) 
                     candidateIdx = 0;
                 }
                 // 用 TMDb 片名补全未识别标题
-                if (!disc.title_cn || disc.title_cn.includes("未识别") || disc.title_cn.includes("区域未识别")) {
+                if (!disc.title_cn || disc.title_cn.includes(tr("match.unrecognized")) || disc.title_cn.includes("区域未识别")) {
                     disc.title_cn = candidate.title_cn || disc.title_cn;
                     disc.title_en = candidate.title_en || disc.title_en || "";
                     disc.year = candidate.year || disc.year || "";
@@ -4868,10 +4946,10 @@ function showMatchModal(query, discId = null, resultIdx = null, options = null) 
                     candidate_idx: candidateIdx,
                 };
                 $("#match-modal").classList.add("hidden");
-                showToast("已选为匹配候选", "success");
+                showToast(tr("toast.matchCandidateApplied"), "success");
                 renderMatchResults();
             } catch (e) {
-                showToast("回填失败: " + e.message, "error");
+                showToast(tr("toast.applyFailed", { message: e.message }), "error");
             }
             return;
         }
@@ -4898,10 +4976,10 @@ function showMatchModal(query, discId = null, resultIdx = null, options = null) 
 
             if (discId) {
                 await api(`/discs/${discId}`, { method: "PUT", body: discData });
-                showToast("更新成功", "success");
+                showToast(tr("toast.updateSuccess"), "success");
             } else {
                 await api("/discs", { method: "POST", body: discData });
-                showToast("添加成功", "success");
+                showToast(tr("toast.addSuccess"), "success");
             }
 
             if (resultIdx !== null && state.selectedMatches) {
@@ -4914,7 +4992,7 @@ function showMatchModal(query, discId = null, resultIdx = null, options = null) 
                 if (card) {
                     const statusEl = card.querySelector(".match-card-status");
                     if (statusEl) {
-                        statusEl.textContent = "✅ 已手动匹配";
+                        statusEl.textContent = tr("match.manualMatched");
                         statusEl.className = "match-card-status matched";
                     }
                 }
@@ -4925,7 +5003,7 @@ function showMatchModal(query, discId = null, resultIdx = null, options = null) 
             await loadFilters();
             await loadStats();
         } catch (e) {
-            showToast("保存失败: " + e.message, "error");
+            showToast(tr("toast.saveFailed", { message: e.message }), "error");
         }
     });
 }
@@ -4935,6 +5013,7 @@ function showMatchModal(query, discId = null, resultIdx = null, options = null) 
 async function openManageModal() {
     if (!requireEditUnlocked()) return;
     $("#manage-modal").classList.remove("hidden");
+    refreshDynamicUi();
     state.manageSelected = {};
     await loadManageImages();
     updateBatchActionBar();
@@ -4949,11 +5028,11 @@ async function loadManageImages() {
     const data = await api("/images");
     const grid = $("#image-grid");
     if (data.images.length === 0) {
-        grid.innerHTML = '<div class="empty-state">暂无上传的图片</div>';
-        $("#manage-stat").textContent = "0 张图片";
+        grid.innerHTML = `<div class="empty-state">${tr("status.noImages")}</div>`;
+        $("#manage-stat").textContent = tr("status.imageCount", { count: 0 });
         return;
     }
-    $("#manage-stat").textContent = `${data.images.length} 张图片`;
+    $("#manage-stat").textContent = tr("status.imageCount", { count: data.images.length });
     grid.innerHTML = data.images.map(img => {
         const isChecked = state.manageSelected[img.id] ? "checked" : "";
         const selClass = state.manageSelected[img.id] ? "selected" : "";
@@ -4964,10 +5043,10 @@ async function loadManageImages() {
                    onchange="onManageCheckbox(${img.id}, this.checked, event)">
             <img src="${img.url}" alt="${label}" loading="lazy" onerror="this.src=''">
             <div class="image-grid-overlay">
-                <span title="${label}">${img.image_type === 'panoramic' ? '全景' : '特写'}</span>
+                <span title="${label}">${img.image_type === 'panoramic' ? tr('images.panoramic') : tr('images.closeup')}</span>
                 <div class="image-grid-overlay-buttons">
-                    <button class="image-grid-reprocess" onclick="event.stopPropagation();reprocessImage(${img.id})" title="重新识别此照片">${DISC_CARD_ICONS.refresh}</button>
-                    <button class="image-grid-delete" onclick="event.stopPropagation();deleteImage(${img.id})">删除</button>
+                    <button class="image-grid-reprocess" onclick="event.stopPropagation();reprocessImage(${img.id})" title="${tr("images.reprocessOne")}">${DISC_CARD_ICONS.refresh}</button>
+                    <button class="image-grid-delete" onclick="event.stopPropagation();deleteImage(${img.id})">${tr("action.delete")}</button>
                 </div>
             </div>
             <div class="image-grid-reprocess-status hidden" id="reprocess-status-${img.id}"></div>
@@ -4990,9 +5069,9 @@ function updateSelectAllButton() {
     const allItems = document.querySelectorAll("#image-grid .image-grid-item");
     const selectedCount = Object.keys(data).length;
     if (selectedCount > 0 && selectedCount === allItems.length) {
-        btn.textContent = "☑ 取消全选";
+        btn.textContent = `☑ ${tr("action.deselectAll")}`;
     } else {
-        btn.textContent = selectedCount > 0 ? `☑ 已选 ${selectedCount}` : "☐ 全选";
+        btn.textContent = selectedCount > 0 ? `☑ ${tr("action.selectCount", { count: selectedCount })}` : `☐ ${tr("action.selectAll")}`;
     }
 }
 
@@ -5042,9 +5121,9 @@ function updateBatchActionBar() {
 
     if (count > 0) {
         bar.classList.remove("hidden");
-        label.textContent = `已选择 ${count} 张`;
-        setBtnLabel(reprocessBtn, `批量重新识别 (${count}张)`);
-        setBtnLabel(deleteBtn, `批量删除 (${count}张)`);
+        label.textContent = tr("status.batchSelected", { count });
+        setBtnLabel(reprocessBtn, tr("images.batchReprocessCount", { count }));
+        setBtnLabel(deleteBtn, tr("images.batchDeleteCount", { count }));
     } else {
         bar.classList.add("hidden");
     }
@@ -5074,7 +5153,7 @@ async function batchReprocess() {
     if (!requireEditUnlocked()) return;
     const ids = Object.keys(state.manageSelected).map(Number);
     if (ids.length === 0) return;
-    if (!confirm(`确定重新识别选中的 ${ids.length} 张照片？原有识别结果将被清除。`)) return;
+    if (!confirm(tr("confirm.reprocessBatch", { count: ids.length }))) return;
 
     const label = $("#batch-action-label");
     const bar = $("#batch-action-bar");
@@ -5090,23 +5169,23 @@ async function batchReprocess() {
 
         const batchId = result.batch_id;
         const total = result.total;
-        label.textContent = `正在重新识别 0/${total}...`;
+        label.textContent = tr("images.reprocessProgress", { done: 0, total });
 
         for (let attempt = 0; attempt < 300; attempt++) {
             await sleep(2000);
             const status = await api(`/batch/process/${batchId}`);
             const completed = status.completed || 0;
-            label.textContent = `正在重新识别 ${completed}/${total}...`;
+            label.textContent = tr("images.reprocessProgress", { done: completed, total });
 
             if (status.status === "done") {
-                label.textContent = `✅ 识别完成！共 ${total} 张`;
-                showToast(`批量重新识别完成，共 ${total} 张 — 请确认匹配`, "success");
+                label.textContent = tr("images.reprocessComplete", { count: total });
+                showToast(tr("toast.reprocessDone"), "success");
                 openMatchStepFromResults(status.results || []);
                 return;
             }
             if (status.status === "error") {
-                label.textContent = "❌ 识别失败";
-                showToast("批量重新识别失败", "error");
+                label.textContent = tr("images.reprocessFail");
+                showToast(tr("toast.batchReprocessFailed"), "error");
                 break;
             }
         }
@@ -5120,7 +5199,7 @@ async function batchReprocess() {
         bar.querySelectorAll("button").forEach(b => b.disabled = false);
 
     } catch (e) {
-        showToast("批量重新识别失败: " + e.message, "error");
+        showToast(tr("toast.batchReprocessFailed") + ": " + e.message, "error");
         label.textContent = originalLabel;
         bar.querySelectorAll("button").forEach(b => b.disabled = false);
     }
@@ -5130,7 +5209,7 @@ async function batchDelete() {
     if (!requireEditUnlocked()) return;
     const ids = Object.keys(state.manageSelected).map(Number);
     if (ids.length === 0) return;
-    if (!confirm(`确定永久删除选中的 ${ids.length} 张照片及其关联的所有碟片？此操作不可恢复！`)) return;
+    if (!confirm(tr("confirm.deleteBatch", { count: ids.length }))) return;
 
     try {
         const result = await api("/images/batch-delete", {
@@ -5138,7 +5217,7 @@ async function batchDelete() {
             body: { image_ids: ids },
         });
 
-        showToast(`成功删除 ${result.count} 张图片`, "success");
+        showToast(tr("toast.batchDeleteSuccess", { count: result.count }), "success");
         state.manageSelected = {};
         await loadDiscs();
         await loadFilters();
@@ -5147,15 +5226,15 @@ async function batchDelete() {
         updateBatchActionBar();
 
     } catch (e) {
-        showToast("批量删除失败: " + e.message, "error");
+        showToast(tr("toast.deleteFailed", { message: e.message }), "error");
     }
 }
 
 async function deleteImage(imageId) {
     if (!requireEditUnlocked()) return;
-    if (!confirm("确定删除此图片及其关联的所有碟片？")) return;
+    if (!confirm(tr("confirm.deleteImage"))) return;
     await api(`/images/${imageId}`, { method: "DELETE" });
-    showToast("删除成功", "success");
+    showToast(tr("toast.deleteSuccess"), "success");
     await loadManageImages();
     await loadDiscs();
     await loadFilters();
@@ -5164,7 +5243,7 @@ async function deleteImage(imageId) {
 
 async function reprocessImage(imageId) {
     if (!requireEditUnlocked()) return;
-    if (!confirm("确定重新识别此照片？原有识别结果将被清除。")) return;
+    if (!confirm(tr("confirm.reprocessOne"))) return;
 
     // 关闭上传模态框，避免状态交叉
     if (!$("#upload-modal").classList.contains("hidden")) {
@@ -5175,7 +5254,7 @@ async function reprocessImage(imageId) {
     const btn = document.querySelector(`#img-item-${imageId} .image-grid-reprocess`);
     if (statusEl) {
         statusEl.classList.remove("hidden");
-        statusEl.innerHTML = "⏳ 正在重新识别... 0%";
+        statusEl.innerHTML = tr("images.reprocessing", { pct: 0 });
     }
     if (btn) btn.disabled = true;
 
@@ -5190,7 +5269,7 @@ async function reprocessImage(imageId) {
             const status = await api(`/batch/process/${taskId}`);
             const pct = status.progress || 0;
             if (statusEl) {
-                statusEl.innerHTML = `⏳ 重新识别中... ${status.completed || 0}/1 (${pct}%)`;
+                statusEl.innerHTML = tr("images.reprocessing", { pct });
             }
 
             if (status.status === "done") {
@@ -5198,20 +5277,20 @@ async function reprocessImage(imageId) {
                 const results = status.results || [];
                 if (statusEl) {
                     if (results.length > 0 && results[0].disc_count > 0) {
-                        statusEl.innerHTML = `✅ 识别完成！找到 ${results[0].disc_count} 张碟片`;
+                        statusEl.innerHTML = tr("images.foundDiscs", { count: results[0].disc_count });
                         statusEl.className = "image-grid-reprocess-status success";
                     } else {
-                        statusEl.innerHTML = "⚠ 识别完成，未找到碟片";
+                        statusEl.innerHTML = tr("images.noDiscsFound");
                         statusEl.className = "image-grid-reprocess-status warning";
                     }
                 }
                 openMatchStepFromResults(results);
-                showToast("重新识别完成，请确认匹配", "success");
+                showToast(tr("toast.reprocessDone"), "success");
                 return;
             }
             if (status.status === "error") {
                 if (statusEl) {
-                    statusEl.innerHTML = "❌ 识别失败";
+                    statusEl.innerHTML = tr("images.reprocessFail");
                     statusEl.className = "image-grid-reprocess-status error";
                 }
                 break;
@@ -5219,20 +5298,20 @@ async function reprocessImage(imageId) {
         }
 
         if (!completed && statusEl) {
-            statusEl.innerHTML = "⏱ 识别超时";
+            statusEl.innerHTML = tr("toast.reanalyzeTimeout");
             statusEl.className = "image-grid-reprocess-status warning";
         }
 
-        showToast("重新识别完成", "success");
+        showToast(tr("toast.reanalyzeComplete"), "success");
         await loadDiscs();
         await loadFilters();
         await loadStats();
         await loadManageImages();
 
     } catch (e) {
-        showToast("重新识别失败: " + e.message, "error");
+        showToast(tr("toast.reanalyzeFailed", { message: e.message }), "error");
         if (statusEl) {
-            statusEl.innerHTML = "❌ 识别失败: " + e.message;
+            statusEl.innerHTML = tr("images.reprocessFail") + ": " + e.message;
             statusEl.className = "image-grid-reprocess-status error";
         }
         if (btn) btn.disabled = false;
@@ -5245,7 +5324,7 @@ async function setDiscPreference(discId, preference) {
     if (!requireEditUnlocked()) return;
     const disc = state.discs.find(d => d.id === discId);
     if (!disc) {
-        showToast("碟片不存在", "error");
+        showToast(tr("toast.discNotFound"), "error");
         return;
     }
     const current = normalizePreference(disc.preference);
@@ -5271,7 +5350,7 @@ async function setDiscPreference(discId, preference) {
         renderDiscMarkers();
         showToast(preferenceLabel(next) || tr("toast.updated"), "success");
     } catch (e) {
-        showToast("喜好标注失败: " + e.message, "error");
+        showToast(tr("toast.preferenceFailed", { message: e.message }), "error");
     }
 }
 
@@ -5279,7 +5358,7 @@ async function toggleDiscFlag(discId) {
     if (!requireEditUnlocked()) return;
     const disc = state.discs.find(d => d.id === discId);
     if (!disc) {
-        showToast("碟片不存在", "error");
+        showToast(tr("toast.discNotFound"), "error");
         return;
     }
     const next = disc.flagged ? 0 : 1;
@@ -5293,9 +5372,9 @@ async function toggleDiscFlag(discId) {
         if (idx >= 0) state.discs[idx] = { ...state.discs[idx], ...updated, flagged: next };
         renderDiscList();
         renderDiscMarkers();
-        showToast(next ? "已标记为识别有误" : "已取消错误标记", "success");
+        showToast(next ? tr("toast.flagSet") : tr("toast.flagCleared"), "success");
     } catch (e) {
-        showToast("标记失败: " + e.message, "error");
+        showToast(tr("toast.updateFailed", { message: e.message }), "error");
     }
 }
 
@@ -5303,14 +5382,14 @@ async function deleteDiscWithConfirm(discId) {
     if (!requireEditUnlocked()) return;
     const disc = state.discs.find(d => d.id === discId);
     if (!disc) {
-        showToast("碟片不存在", "error");
+        showToast(tr("toast.discNotFound"), "error");
         return;
     }
     const title = disc.title_cn || `#${discId}`;
     // 第一次确认
-    if (!confirm(`确定要删除「${title}」吗？`)) return;
+    if (!confirm(tr("confirm.deleteDisc", { title }))) return;
     // 第二次确认（双重确认，防误删）
-    if (!confirm(`确认删除「${title}」？\n\n此操作将从数据库永久移除，不可恢复。`)) return;
+    if (!confirm(tr("confirm.deleteDiscFinal", { title }))) return;
 
     try {
         await api(`/discs/${discId}`, { method: "DELETE" });
@@ -5322,10 +5401,10 @@ async function deleteDiscWithConfirm(discId) {
         renderDiscList();
         renderDiscMarkers();
         $("#stat-count").textContent = state.discs.length;
-        showToast(`已删除「${title}」`, "success");
+        showToast(tr("toast.deletedDisc", { title }), "success");
         try { await loadStats(); } catch (_) { /* ignore */ }
     } catch (e) {
-        showToast("删除失败: " + e.message, "error");
+        showToast(tr("toast.deleteFailed", { message: e.message }), "error");
     }
 }
 
@@ -5355,7 +5434,7 @@ function _setEditDiscModalChrome(mode) {
     editDiscState.mode = mode === "create" ? "create" : "edit";
     const title = $("#edit-disc-modal-title");
     const icon = $("#edit-disc-title-icon");
-    if (title) title.textContent = editDiscState.mode === "create" ? "手工建卡" : "编辑碟片";
+    if (title) title.textContent = editDiscState.mode === "create" ? tr("dialog.createDisc") : tr("dialog.editDisc");
     if (icon) icon.innerHTML = editDiscState.mode === "create" ? EDIT_DISC_ICON_CREATE : EDIT_DISC_ICON_PENCIL;
 }
 
@@ -5368,15 +5447,15 @@ async function populateEditSourceImageSelect(selectedFilename) {
         const images = (data.images || []).slice().sort((a, b) => {
             const na = (a.display_name || a.original_filename || a.filename || "").toLowerCase();
             const nb = (b.display_name || b.original_filename || b.filename || "").toLowerCase();
-            return na.localeCompare(nb, "zh");
+            return na.localeCompare(nb, uiLocaleTag());
         });
         let matched = false;
-        const opts = ['<option value="">不关联源图（可后补）</option>'];
+        const opts = [`<option value="">${tr("edit.sourceNone")}</option>`];
         for (const img of images) {
             const fn = img.filename || "";
             if (!fn) continue;
             const label = img.display_name || img.original_filename || fn;
-            const typeTag = img.image_type === "panoramic" ? "全景" : "特写";
+            const typeTag = img.image_type === "panoramic" ? tr("images.panoramic") : tr("images.closeup");
             const isSel = want && (fn === want || (img.original_filename || "") === want);
             if (isSel) matched = true;
             opts.push(
@@ -5386,12 +5465,12 @@ async function populateEditSourceImageSelect(selectedFilename) {
         }
         if (want && !matched) {
             opts.splice(1, 0,
-                `<option value="${escapeHtml(want)}" selected>${escapeHtml(want)} · 当前</option>`
+                `<option value="${escapeHtml(want)}" selected>${escapeHtml(want)} · ${tr("edit.sourceCurrent")}</option>`
             );
         }
         sel.innerHTML = opts.join("");
     } catch (e) {
-        sel.innerHTML = '<option value="">不关联源图（可后补）</option>';
+        sel.innerHTML = `<option value="">${tr("edit.sourceNone")}</option>`;
         if (want) {
             sel.innerHTML += `<option value="${escapeHtml(want)}" selected>${escapeHtml(want)}</option>`;
         }
@@ -5403,7 +5482,7 @@ function _previewDiscFromSourceSelect() {
     if (!fn) {
         initEditSpinePreview(null);
         const empty = $("#edit-disc-preview-empty");
-        if (empty) empty.textContent = "无所属特写照片";
+        if (empty) empty.textContent = tr("edit.previewEmpty");
         return;
     }
     const base = editDiscState.discId
@@ -5445,7 +5524,7 @@ function _syncEditDiscSearchBtnLabel() {
     const hasAnyId = _editDiscHasTmdbId()
         || (($("#edit-imdb-id")?.value || "").trim())
         || (($("#edit-tvdb-id")?.value || "").trim());
-    btn.textContent = hasAnyId ? "按片名重新搜索" : "按片名搜索";
+    btn.textContent = hasAnyId ? tr("edit.searchByTitleAgain") : tr("edit.searchByTitle");
 }
 
 function _clearEditDiscCandidates() {
@@ -5508,10 +5587,10 @@ function initEditSpinePreview(disc) {
 
     if (!imageUrl) {
         stage.classList.add("is-empty");
-        if (empty) empty.textContent = "无所属特写照片";
+        if (empty) empty.textContent = tr("edit.previewEmpty");
         img.removeAttribute("src");
         renderEditSpinePreviewRect();
-        if (hint) hint.textContent = "该碟未关联原照片，无法对照碟脊";
+        if (hint) hint.textContent = tr("edit.previewNoPhoto");
         return;
     }
 
@@ -5715,7 +5794,7 @@ function editDisc(discId) {
     if (!requireEditUnlocked()) return;
     const disc = state.discs.find(d => d.id === discId);
     if (!disc) {
-        showToast("碟片不存在", "error");
+        showToast(tr("toast.discNotFound"), "error");
         return;
     }
     editDiscState.discId = discId;
@@ -5736,6 +5815,7 @@ function editDisc(discId) {
     _clearEditDiscCandidates();
     _syncEditDiscSearchBtnLabel();
     $("#edit-disc-modal").classList.remove("hidden");
+    refreshDynamicUi();
     bindEditDiscModal();
     populateEditSourceImageSelect(disc.source_image || "").then(() => {
         initEditSpinePreview(disc);
@@ -5762,13 +5842,14 @@ function openCreateDiscModal() {
     _clearEditDiscCandidates();
     _syncEditDiscSearchBtnLabel();
     $("#edit-disc-modal").classList.remove("hidden");
+    refreshDynamicUi();
     bindEditDiscModal();
     populateEditSourceImageSelect("").then(() => {
         initEditSpinePreview(null);
         const empty = $("#edit-disc-preview-empty");
-        if (empty) empty.textContent = "无所属特写照片（可选下方关联源图）";
+        if (empty) empty.textContent = tr("edit.previewEmptyOptional");
         const hint = $("#edit-disc-preview-hint");
-        if (hint) hint.textContent = "可不关联照片直接建卡；有图时可后补碟脊框";
+        if (hint) hint.textContent = tr("edit.createHintNoPhoto");
     });
 }
 
@@ -5817,13 +5898,13 @@ async function searchEditDiscTmdb() {
     const mediaType = getTmdbScopeFromSeg($("#edit-tmdb-scope"));
     const source = getMetaSourceFromSeg($("#edit-meta-source"));
     if (!titleCn && !titleEn) {
-        showToast("请先填写中文或英文片名再搜索", "error");
+        showToast(tr("toast.fillTitleFirst"), "error");
         return;
     }
 
     const providers = await loadMetaProviders();
     if (source !== "all" && !providers[source]?.enabled) {
-        showToast(providers[source]?.hint || "该来源不可用", "error");
+        showToast(providers[source]?.hint || tr("toast.sourceUnavailable"), "error");
         return;
     }
 
@@ -5833,10 +5914,10 @@ async function searchEditDiscTmdb() {
     const prevLabel = searchBtn.textContent;
     searchBtn.disabled = true;
     refreshBtn.disabled = true;
-    searchBtn.textContent = "搜索中…";
+    searchBtn.textContent = tr("edit.searching");
     box.classList.remove("hidden");
     const srcHint = source === "all" ? "全部可用来源" : source.toUpperCase();
-    box.innerHTML = `<div class="empty-state">正在搜索 ${escapeHtml(srcHint)}…</div>`;
+    box.innerHTML = `<div class="empty-state">${tr("edit.searchingSource", { source: escapeHtml(srcHint) })}</div>`;
 
     try {
         const data = await api("/meta/search", {
@@ -5869,8 +5950,8 @@ async function searchEditDiscTmdb() {
             el.addEventListener("click", () => applyEditDiscCandidateFromEl(el));
         });
     } catch (e) {
-        box.innerHTML = `<div class="empty-state">搜索失败: ${escapeHtml(e.message)}</div>`;
-        showToast("搜索失败: " + e.message, "error");
+        box.innerHTML = `<div class="empty-state">${tr("toast.searchFailed", { message: escapeHtml(e.message) })}</div>`;
+        showToast(tr("toast.searchFailed", { message: e.message }), "error");
     } finally {
         searchBtn.disabled = false;
         refreshBtn.disabled = false;
@@ -5910,12 +5991,12 @@ async function applyEditDiscCandidateFromEl(el) {
         if (source === "tmdb") {
             const tmdbId = parseInt(el.dataset.tmdbId, 10);
             if (!tmdbId) {
-                showToast("无效的 TMDb 候选", "error");
+                showToast(tr("toast.invalidCandidate"), "error");
                 return;
             }
             $("#edit-tmdb-id").value = String(tmdbId);
             // 不伪造其它源 id
-            refreshBtn.textContent = "拉取详情…";
+            refreshBtn.textContent = tr("edit.fetchingDetails");
             const movie = await api(tmdbDetailPath(tmdbId, mt));
             editDiscState.pendingMovie = { ...movie, source: "tmdb" };
             _setEditDiscMediaType(movie.media_type || mt);
@@ -5923,11 +6004,11 @@ async function applyEditDiscCandidateFromEl(el) {
             $("#edit-title-en").value = movie.title_en || $("#edit-title-en").value;
             $("#edit-year").value = movie.year || $("#edit-year").value;
             $("#edit-tmdb-id").value = String(movie.tmdb_id || tmdbId);
-            showToast("已应用 TMDb 候选，点 save 入库，或再点「从 TMDb 刷新」一并保存", "success");
+            showToast(tr("edit.appliedTmdb"), "success");
         } else if (source === "imdb") {
             const imdbId = (el.dataset.imdbId || "").trim();
             if (!imdbId) {
-                showToast("无效的 IMDb 候选", "error");
+                showToast(tr("toast.invalidCandidate"), "error");
                 return;
             }
             // 不伪造 tmdb_id
@@ -5935,7 +6016,7 @@ async function applyEditDiscCandidateFromEl(el) {
             $("#edit-imdb-id").value = imdbId;
             let detail = null;
             try {
-                refreshBtn.textContent = "拉取详情…";
+                refreshBtn.textContent = tr("edit.fetchingDetails");
                 detail = await api(`/meta/imdb/${encodeURIComponent(imdbId)}`);
             } catch (_) {
                 detail = null;
@@ -5964,11 +6045,11 @@ async function applyEditDiscCandidateFromEl(el) {
             if (pending.title_cn) $("#edit-title-cn").value = pending.title_cn;
             if (pending.title_en) $("#edit-title-en").value = pending.title_en;
             if (pending.year) $("#edit-year").value = pending.year;
-            showToast("已应用 IMDb 候选（未写入 tmdb_id），点 save 入库", "success");
+            showToast(tr("edit.appliedImdb"), "success");
         } else {
             const tvdbId = parseInt(el.dataset.tvdbId, 10);
             if (!tvdbId) {
-                showToast("无效的 TVDB 候选", "error");
+                showToast(tr("toast.invalidCandidate"), "error");
                 return;
             }
             $("#edit-tmdb-id").value = "";
@@ -5995,7 +6076,7 @@ async function applyEditDiscCandidateFromEl(el) {
                 original_language: "",
             };
             editDiscState.pendingMovie = pending;
-            showToast("已应用 TVDB 候选（未写入 tmdb_id），点 save 入库", "success");
+            showToast(tr("edit.appliedTvdb"), "success");
         }
         _syncEditDiscSearchBtnLabel();
     } catch (e) {
@@ -6004,12 +6085,12 @@ async function applyEditDiscCandidateFromEl(el) {
         const hint = /接口不存在|404/i.test(msg)
             ? "（本地 API 路由未找到，请重启 Flask）"
             : "";
-        showToast("已填入编号，但拉取详情失败: " + msg + hint, "error");
+        showToast(tr("toast.fetchFailed") + ": " + msg + hint, "error");
     } finally {
         refreshBtn.disabled = false;
         searchBtn.disabled = false;
         saveBtn.disabled = false;
-        refreshBtn.textContent = prevRefresh || "从 TMDb 刷新";
+        refreshBtn.textContent = prevRefresh || tr("edit.refreshTmdb");
         _syncEditDiscSearchBtnLabel();
     }
 }
@@ -6041,15 +6122,15 @@ async function saveEditDisc(refreshFromTmdb) {
     const sourceImage = ($("#edit-source-image")?.value || "").trim();
 
     if (!titleCn && !titleEn) {
-        showToast("请至少填写中文或英文片名", "error");
+        showToast(tr("toast.titleRequired"), "error");
         return;
     }
     if (tmdbRaw !== "" && (Number.isNaN(tmdbId) || tmdbId <= 0)) {
-        showToast("TMDb 编号无效", "error");
+        showToast(tr("toast.invalidTmdbId"), "error");
         return;
     }
     if (tvdbRaw !== "" && (Number.isNaN(tvdbId) || tvdbId <= 0)) {
-        showToast("TVDB 编号无效", "error");
+        showToast(tr("toast.invalidTvdbId"), "error");
         return;
     }
 
@@ -6078,10 +6159,10 @@ async function saveEditDisc(refreshFromTmdb) {
     try {
         if (refreshFromTmdb) {
             if (!body.tmdb_id) {
-                showToast("请先填写或搜索选定 TMDb 编号", "error");
+                showToast(tr("toast.tmdbIdRequired"), "error");
                 return;
             }
-            refreshBtn.textContent = "拉取中…";
+            refreshBtn.textContent = tr("edit.fetchingTmdb");
             const movie = await api(tmdbDetailPath(body.tmdb_id, body.tmdb_media_type));
             // 保留对话框里的片名/年份；只补海报与简介/演职等元数据（不碰框位）
             Object.assign(body, {
@@ -6139,11 +6220,11 @@ async function saveEditDisc(refreshFromTmdb) {
             const created = await api("/discs", { method: "POST", body });
             savedId = created.id;
             closeEditDiscModal();
-            showToast(refreshFromTmdb ? "已建卡并自 TMDb 拉取元数据" : "碟片已创建", "success");
+            showToast(refreshFromTmdb ? tr("toast.createdWithTmdb") : tr("toast.discCreated"), "success");
         } else {
             await api(`/discs/${discId}`, { method: "PUT", body });
             closeEditDiscModal();
-            showToast(refreshFromTmdb ? "已从 TMDb 刷新并保存" : "碟片已保存", "success");
+            showToast(refreshFromTmdb ? tr("toast.refreshedFromTmdb") : tr("toast.discSaved"), "success");
         }
         await loadDiscs();
         await loadFilters();
@@ -6162,7 +6243,7 @@ async function saveEditDisc(refreshFromTmdb) {
         saveBtn.disabled = false;
         refreshBtn.disabled = false;
         if (searchBtn) searchBtn.disabled = false;
-        refreshBtn.textContent = "从 TMDb 刷新";
+        refreshBtn.textContent = tr("edit.refreshTmdb");
         _syncEditDiscSearchBtnLabel();
     }
 }
@@ -6183,7 +6264,7 @@ async function enrichPostersFromTmdb() {
     if (btn) {
         btn.disabled = true;
         const label = btn.querySelector(".btn-label");
-        if (label) label.textContent = "补全中…";
+        if (label) label.textContent = tr("action.enrichRunning");
     }
     try {
         const start = await api("/discs/enrich-posters", {
@@ -6191,10 +6272,10 @@ async function enrichPostersFromTmdb() {
             body: { only_missing: true, include_credits: true },
         });
         if (!start.task_id) {
-            showToast(start.message || "没有需要补全的碟片", "success");
+            showToast(start.message || tr("toast.enrichNone"), "success");
             return;
         }
-        showToast(`开始补全 ${start.total} 张…`, "success");
+        showToast(tr("toast.enrichStarted", { count: start.total }), "success");
         const taskId = start.task_id;
         while (true) {
             await new Promise(r => setTimeout(r, 1200));
@@ -6215,7 +6296,7 @@ async function enrichPostersFromTmdb() {
                 break;
             }
             if (task.status === "error") {
-                showToast(task.message || "补全失败", "error");
+                showToast(task.message || tr("toast.enrichFailed", { message: "" }), "error");
                 break;
             }
         }
@@ -6223,12 +6304,12 @@ async function enrichPostersFromTmdb() {
         await loadFilters();
         await loadStats();
     } catch (e) {
-        showToast("补全海报失败: " + e.message, "error");
+        showToast(tr("toast.enrichFailed", { message: e.message }), "error");
     } finally {
         if (btn) {
             btn.disabled = false;
             const label = btn.querySelector(".btn-label");
-            if (label) label.textContent = prev || "补全海报";
+            if (label) label.textContent = prev || tr("action.enrichPosters");
         }
     }
 }
@@ -6272,7 +6353,7 @@ function initDragOnWall() {
             });
             await loadDiscs();
         } catch (err) {
-            showToast("位置更新失败", "error");
+            showToast(tr("toast.positionUpdateFailed"), "error");
         }
         dragState = null;
     });
@@ -6312,14 +6393,14 @@ async function visualCompare(imageId, imgIdx, discIdx, posterUrl, title, year, r
                 <div class="compare-text">该碟片尚未标定碟脊区域。请在原图上框选正确碟脊后再比对，或改用手动搜索 TMDb。</div>
                 <div class="compare-fallback-actions">
                     <button type="button" class="disc-tool-btn" onclick="event.stopPropagation();openSpineCalibrator(${imgIdx}, ${discIdx})">${DISC_CARD_ICONS.crop}<span>标定碟脊</span></button>
-                    <button type="button" class="disc-tool-btn" onclick="event.stopPropagation();openManualTmdbSearch(${imgIdx}, ${discIdx})">${DISC_CARD_ICONS.search}<span>手动搜索 TMDb</span></button>
+                    <button type="button" class="disc-tool-btn" onclick="event.stopPropagation();openManualTmdbSearch(${imgIdx}, ${discIdx})">${DISC_CARD_ICONS.search}<span>${tr("match.manualSearch")}</span></button>
                 </div>
             </div>`;
         container.classList.add("show");
         return;
     }
 
-    container.innerHTML = '<div class="compare-card"><div class="compare-text" style="color:var(--text-muted)">🔄 正在裁剪碟脊并比对海报…</div></div>';
+    container.innerHTML = `<div class="compare-card"><div class="compare-text" style="color:var(--text-muted)">${tr("verify.cropping")}</div></div>`;
     container.classList.add("show");
 
     try {
@@ -6346,7 +6427,7 @@ async function visualCompare(imageId, imgIdx, discIdx, posterUrl, title, year, r
                 break;
             }
             if (status.status === "error") {
-                throw new Error(status.result?.error || "比对失败");
+                throw new Error(status.result?.error || tr("toast.compareFailed"));
             }
         }
 
@@ -6374,7 +6455,7 @@ async function visualCompare(imageId, imgIdx, discIdx, posterUrl, title, year, r
             : /^\s*YES\b/i.test(desc);
         const unknown = typeof result.match !== "boolean" && !/^\s*(YES|NO)\b/i.test(desc);
         const verdictClass = unknown ? "unknown" : (matchFlag ? "yes" : "no");
-        const verdictText = unknown ? "结果不明" : (matchFlag ? "YES · 外观一致" : "NO · 外观不一致");
+        const verdictText = unknown ? tr("verify.unknown") : (matchFlag ? "YES · 外观一致" : "NO · 外观不一致");
         const reason = summarizeCompareReason(result.summary || desc, matchFlag);
         const safePoster = escapeHtml(posterUrl);
         const safeTitle = escapeHtml(title || "");
@@ -6394,7 +6475,7 @@ async function visualCompare(imageId, imgIdx, discIdx, posterUrl, title, year, r
                     </div>
                     <div class="compare-figure">
                         <span class="compare-caption">裁剪碟脊</span>
-                        ${cropSrc ? `<img src="${cropSrc}" alt="裁剪碟脊">` : '<div class="compare-text">无裁剪图</div>'}
+                        ${cropSrc ? `<img src="${cropSrc}" alt="${tr("verify.croppedSpine")}">` : `<div class="compare-text">${tr("verify.noCrop")}</div>`}
                     </div>
                     <div class="compare-figure">
                         <span class="compare-caption">TMDb 海报</span>
@@ -6409,11 +6490,11 @@ async function visualCompare(imageId, imgIdx, discIdx, posterUrl, title, year, r
         const isBbox = /尚未标定|missing_bbox|无法精确比对/i.test(msg);
         container.innerHTML = `
             <div class="compare-card">
-                <div class="compare-verdict ${isBbox ? "unknown" : "no"}">${isBbox ? "无法精确比对" : "比对失败"}</div>
+                <div class="compare-verdict ${isBbox ? "unknown" : "no"}">${isBbox ? "无法精确比对" : tr("toast.compareFailed")}</div>
                 <div class="compare-text">${escapeHtml(msg)}</div>
                 ${isBbox ? `<div class="compare-fallback-actions">
                     <button type="button" class="disc-tool-btn" onclick="event.stopPropagation();openSpineCalibrator(${imgIdx}, ${discIdx})">${DISC_CARD_ICONS.crop}<span>标定碟脊</span></button>
-                    <button type="button" class="disc-tool-btn" onclick="event.stopPropagation();openManualTmdbSearch(${imgIdx}, ${discIdx})">${DISC_CARD_ICONS.search}<span>手动搜索 TMDb</span></button>
+                    <button type="button" class="disc-tool-btn" onclick="event.stopPropagation();openManualTmdbSearch(${imgIdx}, ${discIdx})">${DISC_CARD_ICONS.search}<span>${tr("match.manualSearch")}</span></button>
                 </div>` : ""}
             </div>`;
     }
@@ -6457,12 +6538,12 @@ async function openDiscBboxEditor(discId) {
             disc = await api(`/discs/${discId}`);
             imageUrl = disc.source_image_url || sourceImageThumbUrl(disc.source_image || "");
         } catch (e) {
-            showToast("加载碟片失败: " + e.message, "error");
+            showToast(tr("toast.loadDiscFailed", { message: e.message }), "error");
             return;
         }
     }
     if (!disc || !imageUrl) {
-        showToast("该碟片没有源照片，无法框选", "error");
+        showToast(tr("toast.noSourcePhoto"), "error");
         return;
     }
     const prefill = {
@@ -6473,8 +6554,8 @@ async function openDiscBboxEditor(discId) {
     };
     openBboxEditor({
         mode: "editDiscBbox",
-        title: "重新框选 · 在原照片中的位置",
-        confirmLabel: "保存框选",
+        title: tr("dialog.bboxReselect"),
+        confirmLabel: tr("bbox.confirmSave"),
         discId: disc.id,
         imgIdx: null,
         discIdx: null,
@@ -6488,12 +6569,12 @@ function openSpineCalibrator(imgIdx, discIdx) {
     if (!requireEditUnlocked()) return;
     const analysis = (state.analysisResults || [])[imgIdx];
     if (!analysis || !analysis.url) {
-        showToast("找不到源照片", "error");
+        showToast(tr("toast.sourcePhotoMissing"), "error");
         return;
     }
     const disc = (analysis.discs || [])[discIdx];
     if (!disc) {
-        showToast("碟片不存在", "error");
+        showToast(tr("toast.discNotFound"), "error");
         return;
     }
     let prefill = null;
@@ -6507,8 +6588,8 @@ function openSpineCalibrator(imgIdx, discIdx) {
     }
     openBboxEditor({
         mode: "calibrate",
-        title: "标定碟脊",
-        confirmLabel: "确认标定",
+        title: tr("dialog.calibrateSpine"),
+        confirmLabel: tr("bbox.confirmCalibrate"),
         imgIdx,
         discIdx,
         imageId: analysis.image_id,
@@ -6521,13 +6602,13 @@ function openRegionReanalyze(imgIdx) {
     if (!requireEditUnlocked()) return;
     const analysis = (state.analysisResults || [])[imgIdx];
     if (!analysis || !analysis.url || !analysis.image_id) {
-        showToast("找不到源照片", "error");
+        showToast(tr("toast.sourcePhotoMissing"), "error");
         return;
     }
     openBboxEditor({
         mode: "reanalyze",
-        title: "框选区域重新识别",
-        confirmLabel: "识别此区域",
+        title: tr("dialog.bboxRegion"),
+        confirmLabel: tr("bbox.confirmRegion"),
         imgIdx,
         discIdx: null,
         imageId: analysis.image_id,
@@ -6552,8 +6633,8 @@ function openBboxEditor({ mode, title, confirmLabel, imgIdx, discIdx, discId, im
 
     const root = $("#bbox-editor");
     const titleEl = $("#bbox-editor-title");
-    if (titleEl) setIconTitle(titleEl, "crop", title || "框选区域");
-    $("#bbox-editor-confirm").textContent = confirmLabel || "确认";
+    if (titleEl) setIconTitle(titleEl, "crop", title || tr("dialog.bboxRegion"));
+    $("#bbox-editor-confirm").textContent = confirmLabel || tr("action.confirm");
     $("#bbox-editor-confirm").disabled = !bboxEditor.rect;
     root.classList.remove("hidden");
 
@@ -6624,7 +6705,7 @@ function updateBboxEditorCoords() {
     if (!el) return;
     const r = bboxEditor.rect;
     if (!r || r.w <= 0.001 || r.h <= 0.001) {
-        el.textContent = "未框选";
+        el.textContent = tr("bbox.noSelection");
         if (btn) btn.disabled = true;
         return;
     }
@@ -6749,7 +6830,7 @@ async function confirmBboxEditor() {
     if (!requireEditUnlocked()) return;
     const r = bboxEditor.rect;
     if (!r || r.w < 0.004 || r.h < 0.004) {
-        showToast("请先框选区域", "error");
+        showToast(tr("toast.drawRegionFirst"), "error");
         return;
     }
 
@@ -6757,13 +6838,13 @@ async function confirmBboxEditor() {
     if (bboxEditor.mode === "editDiscBbox") {
         const discId = bboxEditor.discId;
         if (!discId) {
-            showToast("碟片 ID 丢失", "error");
+            showToast(tr("toast.discIdMissing"), "error");
             return;
         }
         const confirmBtn = $("#bbox-editor-confirm");
         const prevLabel = confirmBtn.textContent;
         confirmBtn.disabled = true;
-        confirmBtn.textContent = "保存中…";
+        confirmBtn.textContent = tr("edit.saving");
         try {
             await api(`/discs/${discId}`, {
                 method: "PUT",
@@ -6775,14 +6856,14 @@ async function confirmBboxEditor() {
                 },
             });
             closeBboxEditor();
-            showToast("框选已保存", "success");
+            showToast(tr("toast.bboxSaved"), "success");
             await loadDiscs();
             if (state.selectedDiscId === discId) {
                 await showDiscDetail(discId);
             }
             renderDiscMarkers();
         } catch (e) {
-            showToast("保存框选失败: " + e.message, "error");
+            showToast(tr("toast.saveFailed", { message: e.message }), "error");
             confirmBtn.disabled = false;
             confirmBtn.textContent = prevLabel;
         }
@@ -6792,7 +6873,7 @@ async function confirmBboxEditor() {
     const imgIdx = bboxEditor.imgIdx;
     const analysis = state.analysisResults[imgIdx];
     if (!analysis) {
-        showToast("分析结果丢失", "error");
+        showToast(tr("toast.analysisLost"), "error");
         return;
     }
 
@@ -6800,7 +6881,7 @@ async function confirmBboxEditor() {
         const discIdx = bboxEditor.discIdx;
         const disc = analysis.discs[discIdx];
         if (!disc) {
-            showToast("碟片不存在", "error");
+            showToast(tr("toast.discNotFound"), "error");
             return;
         }
         disc.photo_offset_x = +r.x.toFixed(4);
@@ -6808,7 +6889,7 @@ async function confirmBboxEditor() {
         disc.bbox_w = +r.w.toFixed(4);
         disc.bbox_h = +r.h.toFixed(4);
         closeBboxEditor();
-        showToast("碟脊区域已标定，可再点「视觉比对」", "success");
+        showToast(tr("toast.spineCalibrated"), "success");
         renderMatchResults();
         return;
     }
@@ -6817,7 +6898,7 @@ async function confirmBboxEditor() {
     const confirmBtn = $("#bbox-editor-confirm");
     const prevLabel = confirmBtn.textContent;
     confirmBtn.disabled = true;
-    confirmBtn.textContent = "识别中…";
+    confirmBtn.textContent = tr("bbox.analyzing");
     try {
         const data = await api(`/images/${bboxEditor.imageId}/analyze-region`, {
             method: "POST",
@@ -6833,10 +6914,10 @@ async function confirmBboxEditor() {
         analysis.discs.push(...newDiscs);
         analysis.disc_count = analysis.discs.length;
         closeBboxEditor();
-        showToast(`已追加 ${newDiscs.length} 条区域识别结果`, "success");
+        showToast(tr("toast.regionAdded", { count: newDiscs.length }), "success");
         renderMatchResults();
     } catch (e) {
-        showToast("区域识别失败: " + e.message, "error");
+        showToast(tr("error.regionFailed") + ": " + e.message, "error");
         confirmBtn.disabled = false;
         confirmBtn.textContent = prevLabel;
     }
@@ -7050,7 +7131,7 @@ async function savePositionsAndFinish() {
     if (!requireEditUnlocked()) return;
     const btn = $("#btn-save-positions");
     btn.disabled = true;
-    setBtnLabel(btn, "正在保存...");
+    setBtnLabel(btn, tr("match.saving"));
 
     try {
         for (const [imageId, rect] of Object.entries(placementState.rects)) {
@@ -7064,21 +7145,21 @@ async function savePositionsAndFinish() {
                 },
             });
         }
-        showToast(`已保存 ${Object.keys(placementState.rects).length} 张照片的位置`, "success");
+        showToast(tr("toast.positionsSaved", { count: Object.keys(placementState.rects).length }), "success");
         closeUploadModal();
         await loadImageUrlMap();
         await loadDiscs();
     } catch (e) {
-        showToast("保存位置失败: " + e.message, "error");
+        showToast(tr("toast.saveFailed", { message: e.message }), "error");
     } finally {
         btn.disabled = false;
-        setBtnLabel(btn, "保存位置并完成");
+        setBtnLabel(btn, tr("upload.savePlacement"));
     }
 }
 
 function skipPlacement() {
     closeUploadModal();
-    showToast("已跳过位置标记", "success");
+    showToast(tr("toast.skippedPlacement"), "success");
 }
 
 // ===== 树形分组：单张特写墙面 placement 编辑 =====
@@ -7136,25 +7217,25 @@ function selectSoloPlacementImage(imageId, opts = {}) {
     soloPlacementState.activeImageId = imageId;
     const label = entry.display_name || entry.filename;
     $("#solo-placement-filename").textContent =
-        `正在编辑「${label}」· 可切换上方任一特写继续调整，保存时按张写回 placement。`;
+        tr("placement.soloEditing", { name: label });
     renderSoloPlacementTray();
     renderSoloPlacementOverlay();
 }
 
 async function openSourcePlacementEditor(sourceFilename) {
     if (!requireEditUnlocked()) return;
-    if (!sourceFilename || sourceFilename === "未归类") return;
+    if (!sourceFilename || sourceFilename === tr("tree.uncategorized")) return;
 
     try {
         // 确保入口特写已入库
         const data = await api(`/images/resolve-source?filename=${encodeURIComponent(sourceFilename)}`);
         const focusImg = data.image;
         if (!focusImg || !focusImg.id) {
-            showToast("无法解析该特写图", "error");
+            showToast(tr("toast.resolvePhotoFailed"), "error");
             return;
         }
         if (data.created) {
-            showToast("已从 uploads/photos 自动关联该特写图", "success");
+            showToast(tr("toast.autoLinkedPhoto"), "success");
         }
 
         await loadImageUrlMap();
@@ -7169,7 +7250,7 @@ async function openSourcePlacementEditor(sourceFilename) {
             id: img.id,
             filename: img.filename || "",
             url: img.url || sourceImageThumbUrl(img.filename || ""),
-            display_name: img.display_name || img.original_filename || img.filename || `特写 ${idx + 1}`,
+            display_name: img.display_name || img.original_filename || img.filename || `Close-up ${idx + 1}`,
             sourceFilename: img.filename || "",
         }));
 
@@ -7219,10 +7300,10 @@ async function openSourcePlacementEditor(sourceFilename) {
     } catch (e) {
         const msg = e.message || String(e);
         showToast(/未找到|图片管理|uploads\/photos|not_found/i.test(msg)
-            ? (msg.includes("未找到") || msg.includes("图片管理")
+            ? (msg.includes("未找到") || msg.includes(tr("dialog.manage"))
                 ? msg
                 : "该特写尚未入库。请先在「图片管理」上传，或把同名文件放到 uploads/photos 后再点缩略图。")
-            : ("打开位置编辑失败: " + msg), "error");
+            : tr("toast.openPlacementFailed", { message: msg }), "error");
     }
 }
 
@@ -7447,7 +7528,7 @@ async function saveSoloPlacement() {
     if (!requireEditUnlocked()) return;
     const activeId = soloPlacementState.activeImageId;
     if (!activeId || !_soloActiveRect()) {
-        showToast("请先选择要保存的特写", "error");
+        showToast(tr("toast.selectPlacementFirst"), "error");
         return;
     }
 
@@ -7458,7 +7539,7 @@ async function saveSoloPlacement() {
     const btn = $("#solo-placement-save");
     btn.disabled = true;
     const prev = getBtnLabel(btn);
-    setBtnLabel(btn, "正在保存...");
+    setBtnLabel(btn, tr("match.saving"));
 
     const recalc = $("#solo-placement-recalc").checked;
     let saved = 0;
@@ -7496,8 +7577,8 @@ async function saveSoloPlacement() {
         }
         showToast(
             recalc
-                ? `已保存 ${saved} 张特写位置${recalcTotal > 0 ? `，并重算 ${recalcTotal} 张碟片坐标` : ""}`
-                : `已保存 ${saved} 张特写在墙面上的位置`,
+                ? tr("placement.savedRecalc", { photos: saved, discs: recalcTotal })
+                : tr("placement.saved", { count: saved }),
             "success"
         );
         closeSoloPlacementEditor();
@@ -7513,7 +7594,7 @@ async function saveSoloPlacement() {
             if (sel && sel.source_image) renderPhotoArOverlay(sel.source_image);
         }
     } catch (e) {
-        showToast("保存位置失败: " + e.message, "error");
+        showToast(tr("toast.saveFailed", { message: e.message }), "error");
     } finally {
         btn.disabled = false;
         setBtnLabel(btn, prev);
@@ -7735,7 +7816,7 @@ function closeSidebarFooter() {
     footer.dataset.pinned = "";
     if (toggle) {
         toggle.setAttribute("aria-expanded", "false");
-        toggle.setAttribute("aria-label", "展开功能");
+        toggle.setAttribute("aria-label", tr("nav.expandTools"));
     }
     if (sheet) sheet.setAttribute("inert", "");
 }
@@ -7749,7 +7830,7 @@ function openSidebarFooter({ pin = false } = {}) {
     if (pin) footer.dataset.pinned = "1";
     if (toggle) {
         toggle.setAttribute("aria-expanded", "true");
-        toggle.setAttribute("aria-label", "收起功能");
+        toggle.setAttribute("aria-label", tr("nav.collapseTools"));
     }
     if (sheet) sheet.removeAttribute("inert");
 }
@@ -7925,7 +8006,7 @@ function bindEvents() {
     document.querySelectorAll(".modal-overlay").forEach(o => {
         o.addEventListener("click", e => {
             const modal = e.target.closest(".modal");
-            if (modal === $("#upload-modal") && confirm("确定关闭？当前进度将丢失")) closeUploadModal();
+            if (modal === $("#upload-modal") && confirm(tr("upload.confirmClose"))) closeUploadModal();
             if (modal === $("#manage-modal")) closeManageModal();
             if (modal === $("#match-modal")) $("#match-modal").classList.add("hidden");
             if (modal === $("#verify-modal")) $("#verify-modal").classList.add("hidden");

@@ -1,5 +1,17 @@
 (() => {
   const $ = (id) => document.getElementById(id);
+  const tr = (key, params) => (window.MyWallI18n ? window.MyWallI18n.t(key, params) : key);
+
+  async function initI18n() {
+    if (!window.MyWallI18n) return;
+    try {
+      await window.MyWallI18n.init();
+      window.MyWallI18n.applyI18n();
+      window.addEventListener("mywall:ui-language-changed", () => window.MyWallI18n.applyI18n());
+    } catch (e) {
+      console.warn("[spine-editor] locale load failed", e);
+    }
+  }
 
   const SKIP_DELETE_CONFIRM_KEY = "spineEditor.skipDeleteConfirm";
   // 历史错误键：曾把「不再提醒」误当成禁用删除；加载时清掉
@@ -128,7 +140,7 @@
     return new Promise((resolve) => {
       state.deleteConfirmResolver = resolve;
       if (els.deleteMsg) {
-        els.deleteMsg.textContent = `确定删除 #${label}？删除后将按顺序重编号。`;
+        els.deleteMsg.textContent = tr("spine.deleteMsg", { label });
       }
       if (els.deleteSkip) els.deleteSkip.checked = false;
       if (els.deleteModal) els.deleteModal.classList.add("is-open");
@@ -138,7 +150,7 @@
 
   function ensureLoaded() {
     if (!state.originalJson) {
-      alert(state.isEmbed ? "正在加载图片与框数据…" : "请先加载原图和 stage1 json");
+      alert(state.isEmbed ? tr("spine.loadFirstEmbed") : tr("spine.loadFirstFile"));
       return false;
     }
     return true;
@@ -265,7 +277,7 @@
     if (!ensureLoaded()) return;
     const active = state.spines[state.activeIndex];
     if (!active) {
-      alert("请先选中一个框");
+      alert(tr("spine.selectBoxFirst"));
       return;
     }
     const b = active.bbox;
@@ -283,7 +295,7 @@
     renumberSpines();
     if (!state.spines.length) {
       state.activeIndex = 0;
-      els.coordsBox.textContent = "（无框）";
+      els.coordsBox.textContent = tr("bbox.noBox");
     } else {
       state.activeIndex = Math.min(index, state.spines.length - 1);
     }
@@ -412,7 +424,7 @@
     h1.addEventListener("mousedown", onMouseDownTL);
     h2.addEventListener("mousedown", onMouseDownBR);
     div.addEventListener("dblclick", () => {
-      const v = prompt("修改 spine_index（数字）：", spine.spine_index ?? index + 1);
+      const v = prompt(tr("spine.promptIndex"), spine.spine_index ?? index + 1);
       const n = parseInt(v, 10);
       if (!Number.isFinite(n) || n <= 0) return;
       spine.spine_index = n;
@@ -473,8 +485,8 @@
       const delBtn = document.createElement("button");
       delBtn.type = "button";
       delBtn.className = "li-del";
-      delBtn.textContent = "删";
-      delBtn.title = "删除此框";
+      delBtn.textContent = tr("spine.deleteOne");
+      delBtn.title = tr("spine.deleteOneTitle");
       delBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         state.activeIndex = index;
@@ -704,7 +716,7 @@
 
   function exportJson() {
     if (!state.originalJson) {
-      alert("还未加载 json");
+      alert(tr("spine.jsonNotLoaded"));
       return;
     }
     const out = buildBoxesPayload();
@@ -727,15 +739,15 @@
 
   async function saveToServer() {
     if (!state.wallImageId) {
-      alert("缺少 image_id，无法保存");
+      alert(tr("spine.missingImageId"));
       return;
     }
     if (!state.originalJson) {
-      alert("尚未加载数据");
+      alert(tr("spine.dataNotLoaded"));
       return;
     }
     const payload = buildBoxesPayload();
-    setSaveStatus("保存中…");
+    setSaveStatus(tr("spine.saving"));
     try {
       const res = await fetch(`/api/images/${state.wallImageId}/spine-boxes`, {
         method: "PUT",
@@ -745,7 +757,7 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || data.message || `HTTP ${res.status}`);
       state.originalJson = payload;
-      setSaveStatus(`已保存 ${data.spine_count || 0} 框`, "ok");
+      setSaveStatus(tr("spine.savedCount", { count: data.spine_count || 0 }), "ok");
       try {
         window.parent.postMessage(
           { type: "spine-boxes-saved", imageId: state.wallImageId, spineCount: data.spine_count || 0 },
@@ -755,14 +767,14 @@
         /* ignore */
       }
     } catch (e) {
-      setSaveStatus(e.message || "保存失败", "err");
-      alert("保存失败: " + (e.message || e));
+      setSaveStatus(e.message || tr("spine.saveFailed", { message: "" }), "err");
+      alert(tr("spine.saveFailed", { message: e.message || e }));
     }
   }
 
   function applyBoxesData(jsonData, imageUrl) {
     if (!jsonData || !Array.isArray(jsonData.spines)) {
-      throw new Error("json 格式不对：找不到 spines[]");
+      throw new Error(tr("spine.badJson"));
     }
     state.originalJson = jsonData;
     state.jsonData = jsonData;
@@ -794,30 +806,34 @@
       renderSpineList();
       refreshListActive();
       if (!state.spines.length) {
-        els.coordsBox.textContent = "（无框 — 可用「＋ 添加框」或空白处拖拽新建）";
+        els.coordsBox.textContent = tr("spine.noBoxHint");
       }
     };
   }
 
   async function loadFromServer() {
     if (!state.wallImageId) return;
-    if (els.embedMeta) els.embedMeta.textContent = `加载图片 #${state.wallImageId}…`;
+    if (els.embedMeta) els.embedMeta.textContent = tr("spine.loadingImage", { id: state.wallImageId });
     try {
       const res = await fetch(`/api/images/${state.wallImageId}/spine-boxes`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || data.message || `HTTP ${res.status}`);
       const boxes = data.boxes || {};
       const url = boxes.image_url;
-      if (!url) throw new Error("缺少图片 URL");
+      if (!url) throw new Error("Missing image URL");
       applyBoxesData(boxes, url);
       const name = boxes.image_filename || `#${state.wallImageId}`;
       const n = (boxes.spines || []).length;
       if (els.embedMeta) {
-        els.embedMeta.textContent = `${name} · ${n} 框${data.exists ? "" : "（空模板，请手工添加）"}`;
+        els.embedMeta.textContent = tr("spine.metaLoaded", {
+          name,
+          count: n,
+          empty: data.exists ? "" : tr("spine.emptyTemplate"),
+        });
       }
     } catch (e) {
-      if (els.embedMeta) els.embedMeta.textContent = "加载失败: " + (e.message || e);
-      alert("加载失败: " + (e.message || e));
+      if (els.embedMeta) els.embedMeta.textContent = tr("spine.loadFailed", { message: e.message || e });
+      alert(tr("spine.loadFailed", { message: e.message || e }));
     }
   }
 
@@ -836,7 +852,7 @@
     const imageFile = els.inputImage.files && els.inputImage.files[0];
     const jsonFile = els.inputJson.files && els.inputJson.files[0];
     if (!imageFile || !jsonFile) {
-      alert("请先选择原图和 stage1 json");
+      alert(tr("spine.pickBoth"));
       return;
     }
 
@@ -925,7 +941,9 @@
   bindGlobalEvents();
   window.addEventListener("resize", () => setStageSize());
 
-  if (state.isEmbed && state.wallImageId) {
-    loadFromServer();
-  }
+  initI18n().then(() => {
+    if (state.isEmbed && state.wallImageId) {
+      loadFromServer();
+    }
+  });
 })();

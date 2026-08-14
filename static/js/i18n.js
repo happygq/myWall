@@ -37,11 +37,21 @@
         return readPreference(CONTENT_LANG_KEY, DEFAULT_CONTENT_LANG);
     }
 
+    /** BCP 47 tag for Intl / localeCompare (UI locale, not content). */
+    function getUiLocaleTag() {
+        return {
+            en: "en-US",
+            zh: "zh-CN",
+            ja: "ja-JP",
+            ko: "ko-KR",
+        }[getUiLang()] || "en-US";
+    }
+
     async function loadDictionary(lang) {
         const normalized = normalizeLang(lang, DEFAULT_UI_LANG);
         if (dictionaries.has(normalized)) return dictionaries.get(normalized);
 
-        const response = await global.fetch(`/static/locales/${normalized}.json`);
+        const response = await global.fetch(`/static/locales/${normalized}.json?v=5.0c`);
         if (!response.ok) {
             throw new Error(`Unable to load locale "${normalized}" (${response.status})`);
         }
@@ -66,6 +76,7 @@
 
     function applyI18n(root) {
         const scope = root || global.document;
+        const docEl = global.document.documentElement;
         scope.querySelectorAll("[data-i18n]").forEach((element) => {
             element.textContent = t(element.dataset.i18n);
         });
@@ -80,6 +91,9 @@
         });
         scope.querySelectorAll("[data-i18n-alt]").forEach((element) => {
             element.setAttribute("alt", t(element.dataset.i18nAlt));
+        });
+        scope.querySelectorAll("[data-i18n-value]").forEach((element) => {
+            element.setAttribute("value", t(element.dataset.i18nValue));
         });
         const titleKey = global.document.documentElement.dataset.i18nTitle;
         if (titleKey) global.document.title = t(titleKey);
@@ -127,6 +141,7 @@
         t,
         applyI18n,
         getUiLang,
+        getUiLocaleTag,
         setUiLang,
         getContentLang,
         setContentLang,

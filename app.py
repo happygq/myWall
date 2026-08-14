@@ -176,9 +176,9 @@ def _apply_external_ids_from_payload(data: dict) -> tuple[dict | None, tuple | N
             try:
                 data["tvdb_id"] = _normalize_tvdb_id(raw)
             except (TypeError, ValueError):
-                return None, (jsonify({"error": "TVDB 编号无效"}), 400)
+                return None, (jsonify({"error": "Invalid TVDB ID"}), 400)
             if data["tvdb_id"] is None and raw not in (None, "", 0, "0"):
-                return None, (jsonify({"error": "TVDB 编号无效"}), 400)
+                return None, (jsonify({"error": "Invalid TVDB ID"}), 400)
     return data, None
 
 
@@ -305,7 +305,7 @@ def duplicate_response(existing_image, reason="hash"):
         "height": existing_image.get("height", 0),
         "status": "duplicate",
         "dedupe_by": reason,
-        "message": "文件已存在，跳过上传",
+        "message": "File already exists — skipped",
     }
 
 
@@ -350,9 +350,9 @@ def api_get_discs():
         try:
             preference = int(preference_raw)
         except ValueError:
-            return jsonify({"error": "喜好筛选无效"}), 400
+            return jsonify({"error": "Invalid preference filter"}), 400
         if preference not in (0, 1, 2, 3):
-            return jsonify({"error": "喜好筛选无效"}), 400
+            return jsonify({"error": "Invalid preference filter"}), 400
 
     if keyword or genre or year or confirmed is not None or preference is not None:
         discs = search_discs(
@@ -369,7 +369,7 @@ def api_get_discs():
 def api_get_disc(disc_id):
     disc = get_disc(disc_id)
     if not disc:
-        return jsonify({"error": "碟片不存在"}), 404
+        return jsonify({"error": "Disc not found"}), 404
 
     # 附加源图片信息用于 AR 叠加显示
     source_image = disc.get("source_image", "")
@@ -386,12 +386,12 @@ def api_add_disc():
     """手工建卡 / 识别入库：无照片也可建；source_image 可空，框位可后补。"""
     data = request.get_json()
     if not data:
-        return jsonify({"error": "无效数据"}), 400
+        return jsonify({"error": "Invalid data"}), 400
 
     title_cn = (data.get("title_cn") or "").strip()
     title_en = (data.get("title_en") or "").strip()
     if not title_cn and not title_en:
-        return jsonify({"error": "片名不能为空"}), 400
+        return jsonify({"error": "Title cannot be empty"}), 400
     data["title_cn"] = title_cn or title_en
     data["title_en"] = title_en
     if "year" in data and data["year"] is not None:
@@ -406,7 +406,7 @@ def api_add_disc():
             try:
                 data["tmdb_id"] = int(tid)
             except (TypeError, ValueError):
-                return jsonify({"error": "TMDb 编号无效"}), 400
+                return jsonify({"error": "Invalid TMDb ID"}), 400
             if data["tmdb_id"] <= 0:
                 data["tmdb_id"] = None
 
@@ -556,11 +556,11 @@ def api_update_disc(disc_id):
     """更新碟片字段。若改了 photo_offset/bbox 且未显式传 pos，尽量按源图 placement 重算墙面坐标。"""
     data = request.get_json()
     if not data:
-        return jsonify({"error": "无效数据"}), 400
+        return jsonify({"error": "Invalid data"}), 400
 
     disc = get_disc(disc_id)
     if not disc:
-        return jsonify({"error": "碟片不存在"}), 404
+        return jsonify({"error": "Disc not found"}), 404
 
     # tmdb_id 允许为空："" / null / 0 → None（与 DB INTEGER NULL 一致）
     if "tmdb_id" in data:
@@ -571,7 +571,7 @@ def api_update_disc(disc_id):
             try:
                 data["tmdb_id"] = int(tid)
             except (TypeError, ValueError):
-                return jsonify({"error": "TMDb 编号无效"}), 400
+                return jsonify({"error": "Invalid TMDb ID"}), 400
             if data["tmdb_id"] <= 0:
                 data["tmdb_id"] = None
 
@@ -607,7 +607,7 @@ def api_update_disc(disc_id):
 def api_delete_disc(disc_id):
     disc = get_disc(disc_id)
     if not disc:
-        return jsonify({"error": "碟片不存在"}), 404
+        return jsonify({"error": "Disc not found"}), 404
     delete_disc(disc_id)
     return jsonify({"message": "删除成功", "id": disc_id})
 
@@ -616,7 +616,7 @@ def api_delete_disc(disc_id):
 def api_update_position(disc_id):
     data = request.get_json()
     if data is None:
-        return jsonify({"error": "无效数据"}), 400
+        return jsonify({"error": "Invalid data"}), 400
     update_disc(disc_id, {"pos_x": data.get("pos_x", 0), "pos_y": data.get("pos_y", 0)})
     return jsonify({"message": "位置更新成功"})
 
@@ -725,7 +725,7 @@ def _do_enrich_posters(task_id, targets, include_credits=True):
                 fail += 1
                 errors.append({
                     "disc_id": disc_id, "tmdb_id": tmdb_id,
-                    "media_type": media_type, "error": "TMDb 无数据",
+                    "media_type": media_type, "error": "No TMDb data",
                 })
             else:
                 patch = _disc_meta_from_tmdb(movie)
@@ -785,14 +785,14 @@ def _do_enrich_posters(task_id, targets, include_credits=True):
 def api_upload_image():
     """上传图片，立即返回，OCR 后台处理"""
     if "image" not in request.files:
-        return jsonify({"error": "请选择图片"}), 400
+        return jsonify({"error": "Select image(s)"}), 400
 
     file = request.files["image"]
     if file.filename == "":
-        return jsonify({"error": "请选择图片"}), 400
+        return jsonify({"error": "Select image(s)"}), 400
 
     if not allowed_file(file.filename):
-        return jsonify({"error": "不支持的图片格式"}), 400
+        return jsonify({"error": "Unsupported image format"}), 400
 
     # 读取文件内容并计算 MD5
     file_data = file.read()
@@ -834,7 +834,7 @@ def api_upload_image():
         "width": width,
         "height": height,
         "status": "uploaded",
-        "message": "图片已上传，后台分析中..."
+        "message": "Uploaded — analyzing in background…"
     })
 
 
@@ -851,7 +851,7 @@ def api_analyze_image(image_id):
             break
 
     if not target:
-        return jsonify({"error": "图片不存在"}), 404
+        return jsonify({"error": "Image not found"}), 404
 
     # 创建任务
     task_id = f"analyze_{image_id}_{uuid.uuid4().hex[:8]}"
@@ -923,7 +923,7 @@ def api_get_task_status(task_id):
         task = processing_tasks.get(task_id)
 
     if not task:
-        return jsonify({"error": "任务不存在"}), 404
+        return jsonify({"error": "Task not found"}), 404
 
     return jsonify(task)
 
@@ -946,7 +946,7 @@ def api_settings_keys_put():
     data = request.get_json(silent=True) or {}
     source = (data.get("source") or data.get("provider") or "").strip().lower()
     if not source:
-        return jsonify({"error": "请指定 source（tmdb / imdb / tvdb）"}), 400
+        return jsonify({"error": "Specify source (tmdb / imdb / tvdb)"}), 400
     enabled = data["enabled"] if "enabled" in data else None
     if enabled is not None:
         enabled = bool(enabled)
@@ -954,11 +954,11 @@ def api_settings_keys_put():
     if api_key is not None and not isinstance(api_key, str):
         api_key = str(api_key)
     if isinstance(api_key, str) and len(api_key) > 2048:
-        return jsonify({"error": "API Key 过长"}), 400
+        return jsonify({"error": "API key too long"}), 400
     try:
         keys = update_api_key_source(source, api_key=api_key, enabled=enabled)
     except ValueError:
-        return jsonify({"error": "未知来源"}), 400
+        return jsonify({"error": "Unknown source"}), 400
     except Exception as e:
         logger.exception("settings keys put failed: %s", e)
         return jsonify_error(client_safe_error(e, "保存 API Key 失败"), 500)
@@ -991,7 +991,7 @@ def api_meta_search():
     )
 
     if not title_cn and not title_en:
-        return jsonify({"error": "请提供片名"}), 400
+        return jsonify({"error": "Enter a title"}), 400
 
     try:
         result = search_multi_source(
@@ -1025,9 +1025,9 @@ def api_meta_search():
 def api_meta_imdb_detail(imdb_id):
     """OMDb 按 imdb_id 拉详情（无 key 时 503）。"""
     if not is_attempt_enabled("imdb"):
-        return jsonify({"error": "已关闭该来源的 API 调用"}), 503
+        return jsonify({"error": "API requests disabled for this source"}), 503
     if not omdb.enabled:
-        return jsonify({"error": "未配置 OMDB_API_KEY，无法拉取 IMDb 详情"}), 503
+        return jsonify({"error": "OMDB_API_KEY not configured"}), 503
     try:
         data = omdb.get_by_imdb_id(imdb_id)
     except OMDbError as e:
@@ -1037,7 +1037,7 @@ def api_meta_imdb_detail(imdb_id):
         logger.exception("OMDb detail unexpected: %s", e)
         return jsonify_error(client_safe_error(e, "获取失败，请稍后重试"), 500)
     if not data:
-        return jsonify({"error": "获取失败"}), 404
+        return jsonify({"error": "Fetch failed"}), 404
     return jsonify(data)
 
 
@@ -1053,7 +1053,7 @@ def api_tmdb_search_multi():
     )
 
     if not title_cn and not title_en:
-        return jsonify({"error": "请提供片名"}), 400
+        return jsonify({"error": "Enter a title"}), 400
 
     try:
         candidates = tmdb.search_by_title_and_visual_clues(
@@ -1133,7 +1133,7 @@ def api_tmdb_media_detail(tmdb_id):
         logger.exception("TMDb detail unexpected id=%s type=%s: %s", tmdb_id, media_type, e)
         return jsonify_error(client_safe_error(e, "获取失败，请稍后重试"), 500)
     if not data:
-        return jsonify({"error": "获取失败"}), 404
+        return jsonify({"error": "Fetch failed"}), 404
     return jsonify(data)
 
 
@@ -1152,7 +1152,7 @@ def api_tmdb_detail(movie_id):
         logger.exception("TMDb movie detail unexpected: %s", e)
         return jsonify_error(client_safe_error(e, "获取失败，请稍后重试"), 500)
     if not data:
-        return jsonify({"error": "获取失败"}), 404
+        return jsonify({"error": "Fetch failed"}), 404
     return jsonify(data)
 
 
@@ -1168,7 +1168,7 @@ def api_tmdb_tv_detail(tv_id):
         logger.exception("TMDb tv detail unexpected: %s", e)
         return jsonify_error(client_safe_error(e, "获取失败，请稍后重试"), 500)
     if not data:
-        return jsonify({"error": "获取失败"}), 404
+        return jsonify({"error": "Fetch failed"}), 404
     return jsonify(data)
 
 
@@ -1191,10 +1191,10 @@ def api_verify_match(image_id):
             break
 
     if not target:
-        return jsonify({"error": "图片不存在"}), 404
+        return jsonify({"error": "Image not found"}), 404
 
     if not tmdb_id:
-        return jsonify({"error": "请提供 tmdb_id"}), 400
+        return jsonify({"error": "TMDb ID required"}), 400
 
     try:
         movie_data = tmdb.get_media_full(tmdb_id, media_type)
@@ -1205,7 +1205,7 @@ def api_verify_match(image_id):
         logger.exception("TMDb verify get_media_full unexpected: %s", e)
         return jsonify_error(client_safe_error(e, "TMDb 数据获取失败"), 500)
     if not movie_data:
-        return jsonify({"error": "TMDb 数据获取失败"}), 404
+        return jsonify({"error": "Could not fetch TMDb data"}), 404
 
     # 创建异步任务
     task_id = f"verify_{image_id}_{tmdb_id}_{uuid.uuid4().hex[:8]}"
@@ -1247,12 +1247,12 @@ def api_batch_process():
         # 检查是否有多个文件
         files = request.files.getlist("images") if len(request.files) > 1 else [request.files.get("image")]
         if not files or not files[0]:
-            return jsonify({"error": "请选择图片"}), 400
+            return jsonify({"error": "Select image(s)"}), 400
     else:
         files = request.files.getlist("images")
 
     if not files or files[0].filename == "":
-        return jsonify({"error": "请选择图片"}), 400
+        return jsonify({"error": "Select image(s)"}), 400
 
     batch_id = uuid.uuid4().hex
     image_type = request.form.get("type", "closeup")
@@ -1315,7 +1315,7 @@ def api_batch_process():
         })
 
     if not uploaded:
-        return jsonify({"error": "没有可处理的图片"}), 400
+        return jsonify({"error": "No valid images"}), 400
 
     # 启动后台批处理
     with tasks_lock:
@@ -1449,7 +1449,7 @@ def api_batch_status(batch_id):
         task = processing_tasks.get(batch_id, {}).copy()
 
     if not task:
-        return jsonify({"error": "任务不存在"}), 404
+        return jsonify({"error": "Task not found"}), 404
 
     return jsonify(task)
 
@@ -1545,7 +1545,7 @@ def api_resolve_source_image():
     """按 source_image 文件名解析 wall_image；若不在库则尝试从 uploads/photos 自动关联。"""
     filename = (request.args.get("filename") or "").strip()
     if not filename or filename == "未归类":
-        return jsonify({"error": "无效文件名"}), 400
+        return jsonify({"error": "Invalid filename"}), 400
 
     created = False
     img = find_wall_image_by_filename(filename)
@@ -1578,11 +1578,11 @@ def api_update_image_position(image_id):
     """更新照片在墙上的位置和尺寸；可选按 photo_offset 重算关联碟片墙面坐标。"""
     data = request.get_json()
     if not data:
-        return jsonify({"error": "无效数据"}), 400
+        return jsonify({"error": "Invalid data"}), 400
 
     img = get_wall_image(image_id)
     if not img:
-        return jsonify({"error": "图片不存在"}), 404
+        return jsonify({"error": "Image not found"}), 404
 
     update_wall_image(image_id, {
         "pos_x": data.get("pos_x", 0),
@@ -1651,18 +1651,18 @@ def api_compare_poster(image_id):
     disc_index = data.get("disc_index")
 
     if not poster_url:
-        return jsonify({"error": "请提供海报 URL"}), 400
+        return jsonify({"error": "Poster URL required"}), 400
 
     bbox = _parse_bbox_frac(data)
     if not bbox:
         return jsonify({
-            "error": "该碟片尚未标定碟脊区域，无法精确比对",
+            "error": "Spine region not marked — cannot compare",
             "code": "missing_bbox",
         }), 400
 
     img = get_wall_image(image_id)
     if not img:
-        return jsonify({"error": "图片不存在"}), 404
+        return jsonify({"error": "Image not found"}), 404
 
     task_id = f"compare_poster_{image_id}_{uuid.uuid4().hex[:8]}"
     with tasks_lock:
@@ -1687,11 +1687,11 @@ def api_analyze_region(image_id):
     data = request.get_json() or {}
     bbox = _parse_bbox_frac(data)
     if not bbox:
-        return jsonify({"error": "请提供有效的框选区域", "code": "missing_bbox"}), 400
+        return jsonify({"error": "Valid bounding box required", "code": "missing_bbox"}), 400
 
     img = get_wall_image(image_id)
     if not img:
-        return jsonify({"error": "图片不存在"}), 404
+        return jsonify({"error": "Image not found"}), 404
 
     try:
         region = analyze_region(img["path"], bbox, pad_ratio=0.1)
@@ -1868,7 +1868,7 @@ def api_reprocess_image(image_id):
     """重新识别已上传的图片：清除旧 OCR/disc 记录，重新分析"""
     img = get_wall_image(image_id)
     if not img:
-        return jsonify({"error": "图片不存在"}), 404
+        return jsonify({"error": "Image not found"}), 404
 
     # 清除旧记录
     clear_image_records(image_id)
@@ -1911,7 +1911,7 @@ def api_batch_delete_images():
     data = request.get_json(silent=True) or {}
     image_ids = coerce_image_ids(data.get("image_ids"))
     if not image_ids:
-        return jsonify({"error": "请提供 image_ids 列表"}), 400
+        return jsonify({"error": "Provide image_ids list"}), 400
 
     deleted = []
     failed = []
@@ -1921,7 +1921,7 @@ def api_batch_delete_images():
     for image_id in image_ids:
         img = image_map.get(image_id)
         if not img:
-            failed.append({"image_id": image_id, "error": "图片不存在"})
+            failed.append({"image_id": image_id, "error": "Image not found"})
             continue
 
         filename = img["filename"]
@@ -1963,7 +1963,7 @@ def api_batch_reprocess():
     data = request.get_json(silent=True) or {}
     image_ids = coerce_image_ids(data.get("image_ids"))
     if not image_ids:
-        return jsonify({"error": "请提供 image_ids 列表"}), 400
+        return jsonify({"error": "Provide image_ids list"}), 400
 
     images = get_all_wall_images()
     image_map = {img["id"]: img for img in images}
@@ -1989,7 +1989,7 @@ def api_batch_reprocess():
         })
 
     if not image_entries:
-        return jsonify({"error": "没有找到有效图片"}), 404
+        return jsonify({"error": "No images found"}), 404
 
     # 创建异步批处理任务
     batch_id = f"batch_reprocess_{uuid.uuid4().hex[:12]}"
@@ -2149,7 +2149,7 @@ def api_batch_stage2():
         boxes = _load_spine_boxes(iid)
         if not boxes or not (boxes.get("spines") or []):
             return jsonify_error(
-                f"图片 #{iid} 尚无碟脊框，请先打开「修正碟脊框」保存至少一个框",
+                f"图片 #{iid} has no spine boxes — edit spine boxes first",
                 400,
             )
         entries.append({"image_id": iid, "wall": wall, "boxes": boxes})

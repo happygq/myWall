@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>myWall - 手工修正碟脊框 v1.4</title>
+  <title>myWall — Edit spine boxes v1.4</title>
   <link rel="stylesheet" href="./css/style.css" />
   <style>
     body { background: #0a0a0c; }
@@ -85,71 +85,61 @@
 </head>
 <body>
   <div class="tool-wrap">
-    <h2 style="margin-top:0;">📐 手工修正碟脊框 v1.4 <span class="hint file-only">（离线 json 编辑）</span><span class="hint embed-only">（关联图片 · 可保存到服务端）</span></h2>
+    <h2 style="margin-top:0;">📐 <span data-i18n="spine.title">Edit spine boxes v1.4</span> <span class="hint file-only" data-i18n="spine.offlineHint">(offline JSON edit)</span><span class="hint embed-only" data-i18n="spine.embedHint">(linked image · save to server)</span></h2>
     <div class="tool-row">
       <div class="tool-panel tool-left">
         <div class="tool-field file-only">
-          <label class="hint">1) 选择原图</label><br />
+          <label class="hint" data-i18n="spine.pickImage">1) Pick source image</label><br />
           <input id="input-image" type="file" accept="image/*" />
         </div>
         <div class="tool-field file-only">
-          <label class="hint">2) 选择 stage1 json（spine_boxes_*.json）</label><br />
+          <label class="hint" data-i18n="spine.pickJson">2) Pick stage1 JSON (spine_boxes_*.json)</label><br />
           <input id="input-json" type="file" accept="application/json" />
         </div>
 
         <div class="tool-actions file-only">
-          <button class="btn btn-primary" id="btn-load" type="button">加载</button>
-          <button class="btn btn-secondary" id="btn-reset" type="button">重置</button>
+          <button class="btn btn-primary" id="btn-load" type="button" data-i18n="spine.load">Load</button>
+          <button class="btn btn-secondary" id="btn-reset" type="button" data-i18n="spine.reset">Reset</button>
         </div>
 
         <div class="tool-field embed-only">
-          <div class="hint" id="embed-meta">加载中…</div>
+          <div class="hint" id="embed-meta" data-i18n="spine.loadingMeta">Loading…</div>
         </div>
         <div class="tool-actions embed-only">
-          <button class="btn btn-secondary" id="btn-reset-embed" type="button">重置</button>
-          <button class="btn btn-primary" id="btn-save-server" type="button" title="快捷键 S">保存到服务端</button>
+          <button class="btn btn-secondary" id="btn-reset-embed" type="button" data-i18n="spine.reset">Reset</button>
+          <button class="btn btn-primary" id="btn-save-server" type="button" data-i18n-title="spine.saveShortcut" title="Shortcut S"><span data-i18n="spine.saveServer">Save to server</span></button>
           <span class="save-status" id="save-status"></span>
         </div>
 
-        <div class="hint-callout">
-          stage1 常会<strong>漏检</strong>：若框数量不够，请用「＋ 添加框」或快捷键补上漏检碟，再拖到正确位置。无框时可从空白开始手工添加。
+        <div class="hint-callout" data-i18n="spine.missDetectHint">
+          Stage1 may miss spines — use Add box or shortcut to fill gaps, then drag into place.
         </div>
 
         <div class="tool-actions">
-          <button class="btn btn-primary" id="btn-add" type="button" title="快捷键 A">＋ 添加框</button>
-          <button class="btn btn-secondary" id="btn-copy" type="button" title="快捷键 C，或 Ctrl/⌘+拖拽当前框">复制当前框</button>
-          <button class="btn btn-secondary" id="btn-delete" type="button" title="快捷键 Delete / Backspace">删除框</button>
-          <button class="btn btn-secondary file-only" id="btn-export" type="button" title="快捷键 S">导出 JSON</button>
-          <button class="skip-confirm-link" id="btn-restore-delete-confirm" type="button" title="清除「不再提醒」设置">恢复删除确认</button>
+          <button class="btn btn-primary" id="btn-add" type="button" data-i18n-title="spine.addBox" title="+ Add box"><span data-i18n="spine.addBox">+ Add box</span></button>
+          <button class="btn btn-secondary" id="btn-copy" type="button" data-i18n="spine.copyBox">Copy box</button>
+          <button class="btn btn-secondary" id="btn-delete" type="button" data-i18n="spine.deleteBox">Delete box</button>
+          <button class="btn btn-secondary file-only" id="btn-export" type="button" data-i18n-title="spine.saveShortcut" title="Shortcut S"><span data-i18n="spine.exportJson">Export JSON</span></button>
+          <button class="skip-confirm-link" id="btn-restore-delete-confirm" type="button" data-i18n-title="spine.restoreConfirm" title="Restore delete confirmation"><span data-i18n="spine.restoreConfirm">Restore delete confirmation</span></button>
         </div>
 
-        <p class="hint" style="margin-top:10px;">
-          <strong>鼠标</strong>：拖拽盒子移动；<span class="kbd">Ctrl</span>（Mac：<span class="kbd">⌘</span>）+ 拖拽盒子可复制出新框；拖拽左上/右下角调尺寸；在<strong>空白处拖拽</strong>新建框。<br />
-          <strong>键盘</strong>：
-          <span class="kbd">A</span> 添加 ·
-          <span class="kbd">C</span> 复制 ·
-          <span class="kbd">Delete</span>/<span class="kbd">⌫</span> 删除 ·
-          <span class="kbd">←↑→↓</span> 微调 ·
-          <span class="kbd">[</span>/<span class="kbd">]</span> 缩放 ·
-          <span class="kbd">R</span> 还原当前框 ·
-          <span class="kbd">S</span> <span class="file-only">导出</span><span class="embed-only">保存</span>
-        </p>
+        <p class="hint" style="margin-top:10px;" data-i18n="spine.mouseHint">Mouse: drag box; Ctrl/⌘+drag to copy; resize corners; drag empty area for new box.</p>
+        <p class="hint" data-i18n="spine.keyboardHint">Keyboard: A add · C copy · Del delete · arrows nudge · [ ] scale · R reset box · S save/export</p>
 
         <div class="tool-field" style="margin-top:12px;">
-          <div class="hint">3) 选中 spine（点击编号）· 共 <span id="spine-count" class="count-badge">0</span> 框</div>
+          <div class="hint"><span data-i18n="spine.listHint" data-i18n-params="count:0">3) Select spine (click number) · 0 boxes</span></div>
           <ul id="spine-list"></ul>
         </div>
       </div>
 
       <div class="tool-panel tool-right">
-        <div class="hint">4) 画布预览（无需联网）</div>
+        <div class="hint" data-i18n="spine.canvasHint">4) Canvas preview (offline OK)</div>
         <div id="stage">
           <img id="stage-img" alt="" />
-          <!-- rect overlay is injected -->
         </div>
         <div style="margin-top:12px;">
-          <div class="hint">当前 bbox（归一化 0-1）：</div>
-          <div id="coords-box" class="textarea-mini">未加载</div>
+          <div class="hint" data-i18n="spine.coordsHint">Current bbox (normalized 0–1):</div>
+          <div id="coords-box" class="textarea-mini" data-i18n="spine.notLoaded">Not loaded</div>
         </div>
       </div>
     </div>
@@ -157,19 +147,20 @@
 
   <div class="modal-backdrop" id="delete-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title">
     <div class="modal-card">
-      <h3 id="delete-confirm-title">确认删除</h3>
-      <p id="delete-confirm-msg">确定删除该框？删除后将按顺序重编号。</p>
+      <h3 id="delete-confirm-title" data-i18n="spine.deleteTitle">Confirm delete</h3>
+      <p id="delete-confirm-msg" data-i18n="spine.deleteMsg">Delete this box? Indices will be renumbered.</p>
       <label class="modal-check">
         <input type="checkbox" id="delete-skip-confirm" />
-        不再提醒（仍会删除，只是跳过确认）
+        <span data-i18n="spine.skipConfirm">Don't ask again (still deletes)</span>
       </label>
       <div class="modal-actions">
-        <button class="btn btn-secondary" id="delete-confirm-cancel" type="button">取消</button>
-        <button class="btn btn-primary" id="delete-confirm-ok" type="button">删除</button>
+        <button class="btn btn-secondary" id="delete-confirm-cancel" type="button" data-i18n="action.cancel">Cancel</button>
+        <button class="btn btn-primary" id="delete-confirm-ok" type="button" data-i18n="action.delete">Delete</button>
       </div>
     </div>
   </div>
 
-  <script src="./js/spine_boxes_editor.js"></script>
+  <script src="./js/i18n.js?v=5.0c"></script>
+  <script src="./js/spine_boxes_editor.js?v=5.0c"></script>
 </body>
 </html>
