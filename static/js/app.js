@@ -29,6 +29,7 @@
  * v3.15l：热词铺满后按 base 非均匀映射：最大词仍铺满，最小词约为原先一半
  * v3.15o：回退热词图到 3.15l（大面板+标题栏+装箱后非均匀字号）；撤销 3.15m/n
  * v3.15p：热词先定显示字号再密铺（恢复 3.15m 装箱）；保留大面板与标题栏
+ * v3.15q：手册/README 增加热词筛选图例；手册同步 3.15p 字号流水线说明
  * 墙面坐标：首页与 placement 编辑共用 wall-coord-layer，百分比相对墙图自然尺寸
  * 素材策略：test3≈test10 只跑一份；墙面只用 test-wall.jpg；识别 test1–13 跳过重复与已完成的 test2
  */
@@ -1553,7 +1554,7 @@ function closeDetail() {
 
 // ===== 使用手册 =====
 
-const MANUAL_SRC = "/static/docs/manual.html?v=3.15p";
+const MANUAL_SRC = "/static/docs/manual.html?v=3.15q";
 
 function openManualModal() {
     const modal = $("#manual-modal");
