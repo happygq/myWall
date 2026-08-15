@@ -96,7 +96,32 @@ You can build the collection without a local vision model:
 
 ## Screenshots
 
-Legacy screenshots were removed because they showed the Chinese stable UI and included a private collection wall. Add only English-UI screenshots that contain no private photos, credentials, or personal library data.
+The screenshots below show the English-first `i18n` interface. They were provided and approved for publication by the collection owner; no credentials or API keys are visible.
+
+<figure>
+  <img src="docs/screenshots/01-desktop-home.png" alt="myWall desktop interface with the disc list, Documentary filter, genre cloud, and Casino Royale details">
+  <figcaption>Desktop overview — browse the filtered collection, explore the genre cloud, and inspect disc details side by side.</figcaption>
+</figure>
+
+<figure>
+  <img src="docs/screenshots/02-edit-disc.png" alt="Edit Disc dialog with spine selection and metadata fields">
+  <figcaption>Edit Disc — refine the source-photo spine box while reviewing titles, IDs, metadata source, and artwork settings.</figcaption>
+</figure>
+
+<figure>
+  <img src="docs/screenshots/03-tools-tray.png" alt="Tools tray with Upload and Scan, Add Disc, Manage Images, and Complete Posters">
+  <figcaption>Tools tray — open the main ingestion, catalog maintenance, image management, and poster completion workflows.</figcaption>
+</figure>
+
+<figure>
+  <img src="docs/screenshots/04-language-chips.png" alt="myWall branding with Chinese, Japanese, Korean, and English language chips">
+  <figcaption>Language controls — switch among English, Simplified Chinese, Japanese, and Korean UI locales from the sidebar header.</figcaption>
+</figure>
+
+<figure>
+  <img src="docs/screenshots/05-wall-locate.png" alt="Physical media wall with a highlighted location for Wimbledon 2011 Official Film">
+  <figcaption>Wall locate — highlight a title's calibrated physical position with an aligned source-photo overlay and location ring.</figcaption>
+</figure>
 
 ## Files intentionally excluded from Git
 
