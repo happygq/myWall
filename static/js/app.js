@@ -1720,8 +1720,8 @@ function closeDetail() {
 
 function manualSrc() {
     return window.MyWallI18n?.getUiLang() === "zh"
-        ? "/static/docs/manual.html?v=5.0r"
-        : "/static/docs/manual.en.html?v=5.0r";
+        ? "/static/docs/manual.html?v=5.0s"
+        : "/static/docs/manual.en.html?v=5.0s";
 }
 
 function syncManualLinks() {

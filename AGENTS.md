@@ -1,11 +1,11 @@
 # AGENTS.md — myWall
 
-## UI 设计
+## UI design
 
-改 UI（模板、静态 CSS/JS、页面视觉）前：
+Before changing UI templates, static CSS/JavaScript, or page visuals:
 
-1. 先读项目根目录的 `DESIGN.md`（Spotify 风格设计规范，来自 awesome-design-md / getdesign）。
-2. 同时遵守用户的 **frontend-design** 约束（构图、品牌层级、字体、背景、hero、卡片、禁区配色等）。
-3. 两者冲突时：**frontend-design 禁区优先**（例如默认紫渐变、奶油底+衬线、过度 glow/pill 等仍按禁区避免），在合规前提下再对齐 `DESIGN.md` 的色板、圆角与层次。
+1. Read the project-root `DESIGN.md` first. It contains the Spotify-inspired design guidance sourced from awesome-design-md / getdesign.
+2. Also follow the user's **frontend-design** constraints for composition, brand hierarchy, typography, backgrounds, hero sections, cards, and prohibited color treatments.
+3. If they conflict, the **frontend-design prohibited patterns take precedence**. Avoid default purple gradients, cream backgrounds paired with serif type, excessive glow, excessive pill styling, and similar restricted patterns; then align with the palette, radii, and hierarchy in `DESIGN.md` wherever compliant.
 
-本次仅落地规范与说明，不要为「对齐设计系统」而整站换皮，除非用户明确要求。
+Apply these rules to the requested scope only. Do not reskin the entire site merely to align it with the design system unless the user explicitly asks for that work.

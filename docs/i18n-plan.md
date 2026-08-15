@@ -1,52 +1,52 @@
-# myWall 多语言独立版架构
+# myWall Multilingual Branch Architecture
 
-> 状态：`i18n` 分支实验方案；不合并到 `main`，除非用户明确决定。
-> 首版语言：English (`en`)、简体中文 (`zh`)、日本語 (`ja`)、한국어 (`ko`)。
+> Status: experimental plan for the `i18n` branch. It remains separate from `main` unless an explicit merge decision is made.
+> Initial locales: English (`en`), Simplified Chinese (`zh`), Japanese (`ja`), and Korean (`ko`).
 
-## 双轨发布策略
+## Dual-track release strategy
 
-- `main` 始终保留 v4.1 中文稳定版及其中文默认体验。
-- `i18n` 是多语言实验版，默认 UI 为纯英文；功能稳定前只在该分支演进。
-- 开发、测试和部署均从目标分支启动，两个分支不共享提交，也不自动合并。
-- 当前数据文件继续使用现有忽略规则，不提交数据库、照片、上传产物或密钥。
+- `main` remains the v4.1 Chinese stable release and preserves its Chinese-first runtime experience.
+- `i18n` is the multilingual experimental release, defaults to English, and evolves independently until its behavior is stable.
+- Development, testing, and deployment must start from the intended branch. The branches neither share commits automatically nor auto-merge.
+- Existing ignore rules remain in force. Databases, photos, uploads, recognition output, and credentials must not be committed.
+- Repository documentation on `i18n` is English-only. Localized runtime dictionaries may contain their target languages because they are UI assets rather than project documentation.
 
-## 语言模型
+## Locale model
 
-语言偏好拆成两个维度：
+Language preference is split into two independent dimensions:
 
-- **UI locale**：按钮、侧栏、弹窗、提示和状态文案，默认 `en`。
-- **Content locale**：卡片译名、演员/导演译名、简介和类型标签，默认 `en`；用户可选择 `zh`、`ja` 或 `ko`。目标语言缺失时依次回退 `en`、原始语言、现有兼容字段。
+- **UI locale:** buttons, sidebar labels, dialogs, notices, and status messages. Default: `en`.
+- **Content locale:** card titles, person names, synopses, and genre labels. Default: `en`; users may select `zh`, `ja`, or `ko`. Missing target-language values fall back to English, original-language data, and existing compatibility fields.
 
-偏好写入浏览器 `localStorage`：
+Preferences are stored in browser `localStorage`:
 
 - `mywall.uiLocale`
 - `mywall.contentLocale`
 
-允许值固定为 `en | zh | ja | ko`。无效值按默认值处理。后续可用 `?lang=` 作为临时预览覆盖，但分支隔离仍是首要边界。
+Supported values are fixed to `en | zh | ja | ko`. Invalid values resolve to the defaults. A future `?lang=` override may provide temporary previews, but branch isolation remains the primary release boundary.
 
-## UI i18n
+## UI internationalization
 
-前端词典位于：
+Frontend dictionaries are located at:
 
 - `static/locales/en.json`
 - `static/locales/zh.json`
-- M2/M4 补充 `ja.json`、`ko.json`
+- `static/locales/ja.json`
+- `static/locales/ko.json`
 
-`static/js/i18n.js` 提供异步词典加载、`t(key)`、`getUiLang()` / `setUiLang()`、`getContentLang()` / `setContentLang()`。页面启动时先加载 UI 词典，再渲染带 `data-i18n` 的固定文案。词典缺 key 时回退英文，再回退 key 本身；禁止因为缺失翻译而阻断页面。
+`static/js/i18n.js` provides asynchronous dictionary loading, `t(key)`, `getUiLang()` / `setUiLang()`, and `getContentLang()` / `setContentLang()`. Startup loads the selected UI dictionary before rendering fixed text marked with `data-i18n`. Missing keys fall back to English and then the key itself; an incomplete locale must never block the page.
 
-M2 将现有硬编码中文逐模块迁移到词典。迁移中的分支页面默认英文，但尚未迁移的文案视为已知过渡状态，不回写 `main`。
+The sidebar exposes compact language chips for English, Simplified Chinese, Japanese, and Korean. Selecting a chip changes the UI locale and does not implicitly overwrite the independent content locale. Incomplete Japanese or Korean entries display English fallback text while preserving the selected locale.
 
-侧栏语言切换器使用可滑出的圆形国旗控件：English 使用 🇺🇸（表示 UI English），简体中文使用 🇨🇳，日本語使用 🇯🇵，한국어 使用 🇰🇷。首版切换 `UI locale`，不隐式改写独立的 `Content locale`。日语、韩语空词典允许先选中并保存 locale，缺失 key 按既定规则回退英文。
+## Content internationalization and compatible migration
 
-## Content i18n 与兼容迁移
+The planned SQLite `discs` additions are JSON text columns:
 
-SQLite `discs` 表计划增加 JSON 文本列：
+- `titles_i18n`: `{"en": "...", "zh": "...", "ja": "...", "ko": "..."}`
+- `synopses_i18n`: the same locale map for synopses
+- `genres_i18n`: per-locale arrays of display labels
 
-- `titles_i18n`：`{"en": "...", "zh": "...", "ja": "...", "ko": "..."}`
-- `synopses_i18n`：同上
-- `genres_i18n`：各语言的展示标签数组
-
-人物继续存于 `directors` / `cast` JSON 数组，每个人增加：
+People remain in the `directors` / `cast` JSON arrays, with localized fields added per entry:
 
 ```json
 {
@@ -56,54 +56,56 @@ SQLite `discs` 表计划增加 JSON 文本列：
 }
 ```
 
-兼容原则：
+Compatibility requirements:
 
-1. 保留 `title_cn`、`title_en`、`synopsis_cn`、`synopsis_en`，不删除、不重命名；中文版和旧数据库继续可读。
-2. 迁移只添加带默认值 `'{}'` 的列，可重复运行。
-3. 首次迁移把旧字段回填进 JSON：`title_cn → zh`、`title_en → en`，简介同理；原字段保持不变。
-4. 新版写入时同步兼容字段和 JSON 中的 `zh` / `en`，直到中文版去向另行决定。
-5. API 输出同时保留旧字段与新字段，前端内容选择器读取新字段并执行回退。
+1. Keep `title_cn`, `title_en`, `synopsis_cn`, and `synopsis_en` without deletion or renaming so old databases and the stable release remain readable.
+2. Migrations only add columns with a default of `'{}'` and must be safe to rerun.
+3. The first migration backfills JSON from legacy fields: `title_cn → zh`, `title_en → en`, and equivalent synopsis fields, while preserving originals.
+4. New writes synchronize the legacy compatibility fields and the JSON `zh` / `en` values until the stable branch has a separately approved migration path.
+5. API responses retain old fields alongside localized fields. The frontend content selector reads localized fields and applies the documented fallback sequence.
 
-## TMDb 四语预存
+## Four-locale TMDb persistence
 
-TMDb 调用的 `language` 必须参数化，禁止继续依赖可变的全局 `self.lang` 作为新流程唯一语言来源。enrich / 导入确定 TMDb 条目后，预拉并持久化：
+TMDb's `language` argument must be explicit. New workflows must not rely on mutable global `self.lang` as their only locale source. After enrichment or import confirms a TMDb item, prefetch and persist:
 
 - `en` → `en-US`
 - `zh` → `zh-CN`
 - `ja` → `ja-JP`
 - `ko` → `ko-KR`
 
-详情、简介、类型和 credits 以相同 locale 获取并合并。图片与稳定 ID 去重，不因语言重复保存。单个 locale 请求失败时记录缺失并继续其他语言；重试可补齐，不用覆盖已有非空人工翻译。搜索阶段可使用 UI/content locale，提高命中体验；最终确认后的四语预拉才是持久化数据来源。
+Fetch details, synopses, genres, and credits with the same locale and merge them by stable IDs. Images and IDs are deduplicated rather than stored once per language. A failed locale request records missing coverage and allows the remaining locales to continue. Retries fill gaps without overwriting non-empty manual translations. Search may use the current UI or content locale, while the confirmed four-locale fetch is the persistence source.
 
-## 手册
+## Manuals and documentation
 
-- 默认入口：`static/docs/manual.en.html`
-- 中文入口：`static/docs/manual.zh.html`
-- 日语、韩语手册可在首版 UI 与内容链路稳定后补充。
-- 过渡期保留 `manual.html` 作为兼容入口；在 `i18n` 分支将其重定向或链接至英文手册，不影响 `main`。
+- Canonical manual: `static/docs/manual.en.html`
+- Compatibility entry: `static/docs/manual.html`, which forwards to the canonical English manual
+- All Markdown files, plans, screenshot captions, and project guidance on `i18n` remain English-only.
+- Runtime locale dictionaries retain translated UI strings, including Simplified Chinese. Those files are outside the English-only documentation policy.
+- A future translated user manual must use an explicit locale filename such as `manual.zh.html`; it must not silently replace the English compatibility entry.
 
-## 类型筛选
+## Genre filtering
 
-首版展示英文规范标签，同时维护中/日/韩别名。筛选匹配采用规范 genre ID（优先）或别名集合 OR，避免直接比较当前语言文本。现有中文归一表暂时保留，并预留扩展为：
+The initial release displays canonical English genre labels while retaining Chinese, Japanese, and Korean aliases. Filtering should match a canonical genre ID when available, otherwise an OR set of aliases, rather than comparing only the current display text. Existing normalization data remains intact and can evolve toward:
 
 ```text
 genre_id → canonical_en → aliases[en|zh|ja|ko]
 ```
 
-在规范 ID 完成前，API 可同时返回原始类型和英文展示标签，禁止迁移时改写旧库的中文原始值。
+Until canonical IDs are complete, the API may return both original genre values and English display labels. Migration must not rewrite stored source-language values.
 
-## 里程碑
+## Milestones
 
-- **M1 — 分支、文档与 schema**：建立 `i18n`，确定双轨边界、JSON schema、兼容迁移与基础词典脚手架。
-- **M2 — UI 英文化**：将模板和 `app.js` 固定文案迁入词典，默认 UI 为英文，加入缺 key 检查。
-- **M3 — 内容四语预存**：实现 schema 迁移、TMDb 四语详情/credits 拉取、enrich 与导入写入及回退。
-- **M4 — 语言切换器**：分别切换 UI locale 和 content locale，卡片、详情、搜索与类型筛选联动。
-- **M5 — 手册**：交付英文默认手册和中文手册，修正站内入口与分支运行说明。
+- **M1 — Branch, documentation, and schema:** define dual-track boundaries, JSON schemas, compatible migrations, and dictionary scaffolding.
+- **M2 — English-first UI:** move fixed template and `app.js` text into dictionaries, default to English, and check missing keys.
+- **M3 — Four-locale content persistence:** implement schema migration, locale-specific TMDb details/credits, enrichment/import writes, and fallback behavior.
+- **M4 — Locale controls:** independently switch UI and content locales across cards, details, search, and genre filters.
+- **M5 — Manual and branch guidance:** deliver the complete canonical English manual, an English compatibility entry, and accurate branch instructions.
 
-## 验收边界
+## Acceptance boundaries
 
-- `main` 的提交、默认语言和运行路径不变。
-- `i18n` 首屏 UI locale 默认 `en`，content locale 默认 `en`，用户偏好刷新后保留。
-- 同一条内容可同时保存四语，切换只改变展示，不覆盖其他语言。
-- 旧数据库可原地升级；旧字段、中文数据及旧 API 消费方继续工作。
-- 仓库不包含密钥、数据库、照片或识别产物。
+- `main` commits, default locale, and runtime path remain unchanged.
+- The first `i18n` visit defaults both UI locale and content locale to `en`; valid user preferences survive refresh.
+- One item can store all four locales. Switching display language never overwrites another translation.
+- Existing databases upgrade in place, while legacy fields, source-language data, and old API consumers remain supported.
+- Every repository documentation file is English-only; localized UI dictionaries are the intentional exception.
+- The repository contains no credentials, databases, personal photos, uploaded media, or recognition output.

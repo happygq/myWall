@@ -80,7 +80,7 @@
                 <li><a href="#overview">1. Interface overview</a></li>
                 <li><a href="#manual-path">Manual-first workflow</a></li>
                 <li><a href="#vision-setup">Optional vision setup</a></li>
-                <li><a href="#shots">Screenshots</a></li>
+                <li><a href="#shots">Screenshot policy</a></li>
                 <li><a href="#panels">2. Dragging panels</a></li>
                 <li><a href="#views">3. List / folder views</a></li>
                 <li><a href="#search">4. Search and filters</a></li>
@@ -101,10 +101,10 @@
             <h2>1. Interface overview</h2>
             <ul>
                 <li><strong>Panoramic wall:</strong> the central background. Disc markers, location rings, and translucent close-up overlays are drawn over it. The brightness control above the bottom Tools tray changes only the wall photo (about 30%–100%, default <strong>50%</strong>), not markers; the browser remembers the value.</li>
-                <li><strong>Left sidebar:</strong> title and version, edit lock, list/folder switch, search, filters, disc cards, manual button, and flag-based language control. The bottom <strong>Tools</strong> bar slides up to show Upload &amp; Scan, Add Disc, Image Management, and Complete Posters.</li>
+                <li><strong>Left sidebar:</strong> title and version, edit lock, list/folder switch, search, filters, disc cards, manual button, and compact language chips. The bottom <strong>Tools</strong> bar slides up to show Upload &amp; Scan, Add Disc, Image Management, and Complete Posters.</li>
                 <li><strong>Right detail panel:</strong> appears after selecting a disc and shows its poster, metadata, synopsis, source-photo location, AR location controls, and edit action.</li>
             </ul>
-            <p>Open this manual with the book icon. In English UI it loads <code>/static/docs/manual.en.html</code>; Chinese UI loads <code>/static/docs/manual.html</code>. The “Open in new tab” link follows the same rule.</p>
+            <p>Open this manual with the book icon. <code>/static/docs/manual.en.html</code> is the canonical English source. The compatibility entry at <code>/static/docs/manual.html</code> forwards to the same English manual, so every UI locale currently receives complete English documentation.</p>
 
             <h3>Read-only and editable modes</h3>
             <p>The outline lock beside <code>v4.1</code> controls all write operations:</p>
@@ -150,24 +150,8 @@
         </section>
 
         <section id="shots">
-            <h2>Interface screenshots</h2>
-            <p>The first image contains the author’s real home and collection wall. It documents this private installation only; do not reuse the private wall photo when demonstrating a fork.</p>
-            <figure class="shot">
-                <img src="/docs/screenshots/01-desktop-home.png" alt="Desktop home showing the catalog, wall AR overlay, and details">
-                <figcaption>Desktop home: catalog on the left, a translucent close-up aligned on the collection wall, and disc details on the right.</figcaption>
-            </figure>
-            <figure class="shot">
-                <img src="/docs/screenshots/02-edit-api-keys.png" alt="Masked API keys and source toggles in Edit Disc">
-                <figcaption>Edit Disc: TMDb, OMDb (IMDb), and TVDB keys reveal only their final four characters; each source can be enabled independently.</figcaption>
-            </figure>
-            <figure class="shot">
-                <img src="/docs/screenshots/03-functions-tray.png" alt="Tools tray with four primary actions">
-                <figcaption>The Tools tray: Upload &amp; Scan, Add Disc, Image Management, and Complete Posters.</figcaption>
-            </figure>
-            <figure class="shot">
-                <img src="/docs/screenshots/04-genre-cloud.png" alt="Hot Words genre cloud weighted by disc count">
-                <figcaption>Hot Words: genre size reflects library count; select a word to apply that genre filter.</figcaption>
-            </figure>
+            <h2>Screenshot policy</h2>
+            <p>Legacy screenshots were removed because they showed the Chinese stable UI and included a private collection wall. Add only English-UI screenshots that contain no private photos, credentials, or personal library data.</p>
         </section>
 
         <section id="panels">
@@ -201,10 +185,6 @@
             <h3>Hot Words genre cloud</h3>
             <p>On desktop, select the cloud icon at the end of the filter row. Word size is based on the full-library genre count, not the current filtered list. Select a word to filter; drag beyond the movement threshold to reposition it. Nearby words react without overlap, and the cluster settles back toward a heat-weighted center. The stable layout does not repack when a disc is selected or a filter highlight changes.</p>
             <p>The panel can be resized from its edges and corners; size is remembered locally. It repacks after first open, a completed resize, or a meaningful width change. Close it with its close control, <kbd>Esc</kbd>, or a click outside. The entry is hidden on narrow/mobile layouts.</p>
-            <figure class="shot">
-                <img src="/docs/screenshots/04-genre-cloud.png" alt="Hot Words genre cloud weighted by library frequency">
-                <figcaption>Hot Words uses fixed library-wide weights, collision-aware packing, and click-to-filter interaction.</figcaption>
-            </figure>
         </section>
 
         <section id="detail">
@@ -386,12 +366,12 @@
             <h2>13. Language switching and content locale</h2>
             <ul>
                 <li>The <code>i18n</code> branch defaults both <strong>UI locale</strong> and <strong>content locale</strong> to English.</li>
-                <li>Use the circular flag at the top right of the sidebar: 🇺🇸 English, 🇨🇳 Simplified Chinese, 🇯🇵 Japanese, or 🇰🇷 Korean. The current flag is also the menu trigger.</li>
-                <li>The flag switch currently changes <strong>UI locale</strong>—buttons, labels, dialogs, messages, and which manual opens—and stores it as <code>mywall.uiLocale</code>.</li>
+                <li>Use the compact language chips at the top right of the sidebar to select English, Simplified Chinese, Japanese, or Korean.</li>
+                <li>The selected chip changes the <strong>UI locale</strong> for buttons, labels, dialogs, and messages, and stores it as <code>mywall.uiLocale</code>. All locales currently open the same complete English manual.</li>
                 <li><strong>Content locale</strong> controls preferred titles, synopses, people, and genre labels and is stored separately as <code>mywall.contentLocale</code>. Switching the flag does not overwrite it.</li>
                 <li>Supported locale codes are <code>en | zh | ja | ko</code>. Missing UI keys fall back to English, then the key name. Missing content falls back to English, then original/legacy fields.</li>
             </ul>
-            <p class="note warn">English and Simplified Chinese UI dictionaries are implemented. Japanese and Korean flags/locales can be selected and remembered, but their dictionaries are currently empty and therefore display the English fallback. Do not interpret the flags as completed Japanese/Korean UI or four-language content coverage.</p>
+            <p class="note warn">English and Simplified Chinese UI dictionaries are implemented. Japanese and Korean locales can be selected and remembered, but incomplete entries display the English fallback. Do not interpret a selectable chip as proof of complete Japanese/Korean UI or four-language content coverage.</p>
         </section>
 
         <section id="conventions">

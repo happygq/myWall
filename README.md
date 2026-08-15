@@ -1,119 +1,108 @@
 # myWall
 
-个人蓝光 / DVD 收藏墙：拍一面碟墙，识别碟脊，匹配 **TMDb / OMDb(IMDb) / TheTVDB** 元数据，在浏览器里浏览和编辑。
+A personal Blu-ray/DVD collection wall: photograph a shelf, identify disc spines, match **TMDb / OMDb (IMDb) / TheTVDB** metadata, and browse or edit the catalog in a web browser.
 
-当前稳定版本：**v4.1**（中文单语言；在 v4.0 定稿上增量）
+Current application baseline: **v4.1**.
 
-## 版本分支
+## Branches and documentation language
 
-- **`main`：中文稳定版。** 保持 v4.1 的中文默认 UI、手册和运行体验，不接收未经确认的多语言合并。
-- **`i18n`：多语言实验版。** 独立开发 en / zh / ja / ko，目标为默认纯英文 UI，并可单独选择卡片、演员/导演和简介的内容语言。
+- **`main`: Chinese stable release.** It preserves the v4.1 Chinese-first interface, manual, and runtime behavior.
+- **`i18n`: multilingual experimental release.** It develops English, Simplified Chinese, Japanese, and Korean UI support independently, with English as the default UI and content locale.
 
-两个分支采用双轨演进。多语言版稳定前不会合并回 `main`；详细架构、兼容方案和里程碑见 [`docs/i18n-plan.md`](docs/i18n-plan.md)。
+The branches follow a dual-track release model and are not merged automatically. See [`docs/i18n-plan.md`](docs/i18n-plan.md) for architecture, compatibility, status, and milestones.
 
-`i18n` 当前已提供 UI 词典与语言偏好脚手架，界面文案迁移将在 M2 完成。内容默认语言设计为英文，缺失时按英文、原始语言、旧兼容字段回退；切换语言不会覆盖其他译文。
+All repository documentation on `i18n` is maintained in English, including this README, `docs/`, project guidance, and both manual entry points. Localized strings in `static/locales/*.json` are runtime UI assets, not project documentation; their non-English translations are intentionally preserved.
 
-## v4.1 要点
+## i18n branch status
 
-- **热词筛选：** 力导向吸引 + 拖拽、硬边框、面板可 resize；关闭钮悬停显现；字号有下限；松手后按热度分层平滑归位、词团居中稳定；点词筛选 / 点侧栏卡片开详情不重排。
-- **卡片：** 右侧操作钮紧凑线图标（去圆底）；亮度随整卡 hover 拉高；卡片悬停背景更亮。
-- **墙面明暗：** 默认 **50%**（仍约 30%–100%，本机记忆）。
-- **搜索：** 覆盖导演 / 主演 JSON（含 `name_en`）；中文间隔符归一（库内「朱莉娅·罗伯茨」可命中连写「朱莉娅罗伯茨」）。
+- UI dictionaries and persisted UI/content locale preferences are available for `en`, `zh`, `ja`, and `ko`.
+- The compact sidebar language chips change the UI locale without overwriting the independent content locale.
+- Missing UI keys fall back to English and then the key name.
+- Missing localized content falls back to English, original-language data, and legacy compatibility fields.
+- `static/docs/manual.en.html` is the canonical English manual. `static/docs/manual.html` is an English compatibility entry that forwards to it.
 
-## 本地运行
+## v4.1 highlights
 
-需要 Python 3.10+。
+- **Hot Words filtering:** force-directed attraction and dragging, hard boundaries, resizable panel, minimum font sizes, heat-weighted settling, and a stable centered cluster that does not repack when selecting a word or opening details.
+- **Cards:** compact outline action icons without circular backgrounds, stronger whole-card hover visibility, and a brighter hover surface.
+- **Wall brightness:** defaults to **50%**, remains adjustable from about 30% to 100%, and is stored locally.
+- **Search:** includes director/cast JSON fields such as `name_en` and normalizes spaces, common hyphens, and CJK middle-dot variants.
+
+## Run locally
+
+Python 3.10 or newer is required.
 
 ```powershell
+git switch i18n
 python -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
 ```
 
-浏览器打开 [http://127.0.0.1:5000](http://127.0.0.1:5000)。
+Open [http://127.0.0.1:5000](http://127.0.0.1:5000). The service listens on `0.0.0.0:5000` by default. A phone on the same Tailscale network can use the computer's MagicDNS hostname with port `5000` without exposing a public port.
 
-服务默认监听 `0.0.0.0:5000`。电脑已加入 Tailscale 时，手机可用这台机器的 Tailscale 主机名（MagicDNS）加 `:5000` 访问，无需公网端口。
+The complete in-app manual is available at `/static/docs/manual.en.html`; `/static/docs/manual.html` forwards to the same English manual.
 
-站内完整说明：`/static/docs/manual.html`。
+Use `git switch main` only for the separate Chinese stable release. Do not run migration tests for both branches against the same actively written database. Copy the ignored database to a separate test file first.
 
-开发多语言版时先执行 `git switch i18n`，再按以上命令启动；中文稳定版使用 `git switch main`。请勿让两个分支共用正在写入的数据库进行迁移测试，建议先复制一份被 git 忽略的测试数据库。
+## Configure API keys
 
-## 配置 API Key
+All three providers are optional. A provider without a configured key is disabled in search.
 
-三个来源都可选：缺哪个，对应搜索就会在界面里禁用。
+- **TMDb:** posters and movie/series metadata. Apply at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api).
+- **OMDb (IMDb):** IMDb title search. Apply at [omdbapi.com/apikey.aspx](https://www.omdbapi.com/apikey.aspx).
+- **TheTVDB:** series/movie metadata. See [thetvdb.com/api-information](https://thetvdb.com/api-information).
 
-| 来源 | 用途 | 申请 |
-| --- | --- | --- |
-| TMDb | 海报、影片 / 剧集元数据 | [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) |
-| OMDb（IMDb） | IMDb 片名搜索 | [omdbapi.com/apikey.aspx](https://www.omdbapi.com/apikey.aspx) |
-| TheTVDB | 剧集元数据 | [thetvdb.com/api-information](https://thetvdb.com/api-information) |
+The recommended method is the **API Key** section in the Edit Disc or Add Disc dialog. Values are stored locally in ignored `data/api_keys.json`, are hot-read, and do not require a restart.
 
-**推荐：** 打开「编辑碟片」或「手工建卡」弹窗，在 **API Key** 区块填写。写入本机 `data/api_keys.json`（已 gitignore，热读、不必重启）。
+Environment variables are also supported when the JSON settings do not override them; see `.env.example`:
 
-也可以用环境变量（仅当 json 未覆盖时生效），见 `.env.example`：
-
-```
+```text
 TMDB_API_KEY=
 TMDB_ACCESS_TOKEN=
 OMDB_API_KEY=
 TVDB_API_KEY=
 ```
 
-不要把真实 key、`.env` 或 `data/api_keys.json` 提交进仓库。访问 TMDb 若需代理，可设 `HTTPS_PROXY` / `HTTP_PROXY` / `MYWALL_HTTP_PROXY`。
+Never commit real keys, `.env`, or `data/api_keys.json`. If TMDb requires a proxy, set `HTTPS_PROXY`, `HTTP_PROXY`, or `MYWALL_HTTP_PROXY`.
 
-## 本地视觉模型（Stage2 / 自动识别，可选）
+## Optional local vision model
 
-自动识别碟脊依赖本机或局域网上的 **LM Studio OpenAI-compatible** 服务，不是云端视觉 API。
+Automatic spine recognition depends on an **LM Studio OpenAI-compatible** service on the local computer or LAN, not a hosted vision API.
 
-1. 安装 [LM Studio](https://lmstudio.ai/)，下载视觉模型（默认 id：`zai-org/glm-4.6v-flash`）。
-2. 开启 LM Studio 的 Local Server（OpenAI 兼容，常见端口 `1234`）。
-3. 在 `config.py` 或环境变量填写：
-   - `LMSTUDIO_BASE`：可配置的 endpoint，例如 `http://127.0.0.1:1234`。模型若跑在另一台机器，改成那台的 `http://主机:端口`。
-   - `VISION_MODEL`：已加载的模型 id；`VISION_MODEL_AUTO=1` 时按偏好表在已加载模型里挑选。
-4. 跑 Flask 的机器必须能访问该 endpoint（同机 / 同网段 / 防火墙放行）。
-5. 若开了系统 Tun 或全局代理，局域网访问 LM Studio 可能被劫持：把内网段加入旁路，或只让出站 API 域名走代理。
+1. Install [LM Studio](https://lmstudio.ai/) and download a vision model. The default ID is `zai-org/glm-4.6v-flash`.
+2. Start LM Studio Local Server, commonly on port `1234`.
+3. Configure `config.py` or environment variables:
+   - `LMSTUDIO_BASE`: endpoint such as `http://127.0.0.1:1234`; use the model host's LAN address if it runs on another computer.
+   - `VISION_MODEL`: loaded model ID. With `VISION_MODEL_AUTO=1`, myWall selects from its preference list.
+4. Confirm the Flask host can reach the endpoint through local routing and firewall rules.
+5. If a system tunnel or global proxy intercepts LAN traffic, bypass the local subnet or proxy only outbound metadata domains.
 
-**没有模型时，Stage2 / 上传自动识别不可用。** 用下面的手工建墙即可。
+Without a reachable model, Stage2 and automatic upload analysis are unavailable. The manual workflow below still works.
 
-## 手工建墙（无模型主路径）
+## Manual wall-building workflow
 
-没有本地视觉模型，也能靠手工建卡 + 三平台搜索把墙建起来：
+You can build the collection without a local vision model:
 
-1. 点版本号旁的锁，进入可编辑。
-2. 侧栏「功能」→ **上传识别**：上传碟脊特写（可先不跑识别）。
-3. 打开碟脊框编辑，手工改框。
-4. 可选 Stage2；模型不可用就跳过。
-5. 「功能」→ **手工建卡**。
-6. 填中 / 英片名，按片名搜 TMDb · OMDb · TVDB，点选候选补海报与编号。
-7. 在详情里把特写框放到全景墙上（墙面放置）。
-8. 手机只读浏览；按住卡片看 AR 定位。
+1. Select the lock beside the version to enable editing on desktop.
+2. Open **Tools → Upload & Scan** and upload a spine close-up; analysis may be skipped.
+3. Open the spine-box editor and adjust boxes manually.
+4. Run Stage2 only when a vision model is available.
+5. Open **Tools → Add Disc**.
+6. Enter at least one title, search TMDb / OMDb / TVDB, and select a trusted candidate to fill artwork and IDs.
+7. Place the close-up on the panoramic wall from the detail workflow.
+8. Use a phone as a read-only viewer and hold a card to inspect its AR location.
 
-## 截图
+## Screenshots
 
-以下为作者本机界面截图。第一张含真实家居与碟墙，**仅用于本私有库说明；请勿把私人墙图用于演示 fork**。
+Legacy screenshots were removed because they showed the Chinese stable UI and included a private collection wall. Add only English-UI screenshots that contain no private photos, credentials, or personal library data.
 
-![桌面首页：列表、墙面 AR 半透明块与详情](docs/screenshots/01-desktop-home.png)
+## Files intentionally excluded from Git
 
-桌面首页：左列表、中墙面（AR 半透明块叠在作者自己的收藏墙上）、右详情。
+The personal catalog, original wall photos, uploads, recognition output, and credentials are excluded by `.gitignore`:
 
-![编辑碟片弹窗中的 API Key 掩码与开关](docs/screenshots/02-edit-api-keys.png)
-
-编辑碟片：TMDb / OMDb(IMDb) / TVDB 三行 key 只显示掩码末四位，可开关是否调用。
-
-![侧栏功能托盘四个入口](docs/screenshots/03-functions-tray.png)
-
-「功能」托盘：上传识别、手工建卡、图片管理、补全海报——手工建墙的主入口。
-
-![热词筛选：类型词云，字号按碟数加权](docs/screenshots/04-genre-cloud.png)
-
-热词筛选图例：字号按碟数加权，点词即筛选。
-
-## 不会进仓库的内容
-
-个人碟库、墙面原片、上传图、识别产物和密钥默认被 `.gitignore` 排除：
-
-- `data/api_keys.json`、`.env`
+- `data/api_keys.json`, `.env`
 - `data/mywall.db`
-- `photos/`、`uploads/`
-- `out_b_stage1_*`、`data/spine_results/` 等识别输出
+- `photos/`, `uploads/`
+- `out_b_stage1_*`, `data/spine_results/`, and related recognition output
