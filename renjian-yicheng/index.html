@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07101d">
+<title>人间一程｜缘分如星 · 互动动画 v3</title>
+<style>
+:root { color-scheme: dark; --gold:#dfc493; --muted:#aebed2; }
+* { box-sizing:border-box; }
+html,body {margin:0;min-height:100%;background:#050a11;color:#f0e9dd;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+body {display:flex;justify-content:center;align-items:flex-start;gap:28px;padding:16px 20px 28px;}
+.frame {width:min(51.2vw,49.7vh,560px);aspect-ratio:9/16;position:relative;flex-shrink:0;background:radial-gradient(ellipse at 55% 23%,#0f253d,#07101d 60%,#050a11);overflow:hidden;border:1px solid #425065;border-radius:6px;box-shadow:0 18px 80px #0009}
+canvas {display:block;width:100%;height:100%;}
+.fallback {position:absolute;inset:0;display:grid;place-content:center;text-align:center;padding:30px;color:#ead3a4;font-size:15px;line-height:1.9;background:#081728;}
+.fallback small{display:block;color:#9badc3;font-size:12px;}
+.side {max-width:345px;width:min(345px,92vw);align-self:center;padding:18px 6px;}
+.eyebrow {font-size:11px;letter-spacing:5px;color:var(--gold)}
+h1 {font-family:"Songti SC","STSong",serif;letter-spacing:4px;font-weight:500;font-size:34px;margin:14px 0 8px}
+p {color:#b8c1ce;font-size:13px;line-height:1.9;margin:0 0 20px}
+.controls {display:flex;flex-wrap:wrap;gap:8px}
+button {appearance:none;-webkit-appearance:none;touch-action:manipulation;cursor:pointer;background:#162539;color:#ead8bc;border:1px solid #6d644f;border-radius:9px;padding:11px 14px;font-size:13px;font-weight:500;min-height:44px}
+button.primary {background:#d7b780;color:#142033;border-color:#d7b780;font-weight:650}
+button:focus-visible,input:focus-visible{outline:2px solid #d4bd94;outline-offset:3px}
+.info {margin-top:15px;display:flex;justify-content:space-between;align-items:center;color:#aebbd0;font-size:12px}
+.age {font-variant-numeric:tabular-nums;color:#f0d09a;font-size:19px;font-weight:650}
+input[type=range] {width:100%;margin:10px 0 4px;accent-color:#ddc18b;height:24px;touch-action:pan-y}
+.legend {padding-top:13px;border-top:1px solid #253449;margin-top:17px;font-size:12px;line-height:1.9;color:#9eafc2}
+#status {display:block;min-height:24px;margin-top:10px;font-size:11px;color:#d5bc90}
+.brand {font-size:11px;color:#778da7;letter-spacing:2px;margin-top:24px}
+@media(max-width:850px){body{display:flex;flex-direction:column;align-items:center;padding:8px 0 24px;gap:10px}.frame {width:min(96vw,56.25vh);border-radius:0}.side{width:min(94vw,560px);max-width:560px;align-self:center;padding:0 5px}h1{font-size:24px;margin:6px 0}.side p{margin:0 0 10px;line-height:1.5;font-size:12px}.legend{margin-top:9px}.brand{margin-top:9px}.eyebrow{font-size:10px}}
+@media(max-width:850px) and (orientation:landscape){.frame{width:min(42vw,90vh)}body{flex-direction:row}.side{align-self:center}}
+</style>
+</head>
+<body>
+<div class="frame" aria-label="人生轨迹动态画布"><canvas id="life" width="600" height="1067"></canvas>
+<div class="fallback" id="fallback">正在准备动态星河……<small>若此提示一直存在，请在 Safari 或 Chrome 打开在线 HTTPS 链接。<br>ChatGPT 文件预览不支持运行这类动画。</small></div>
+</div>
+<main class="side">
+<div class="eyebrow">LIFE · FATE · TIME</div>
+<h1>人间一程</h1>
+<p>人生如寄，山水一程。与我们相逢的人，在同一条时间线上同行；有人从远方飞来，有人停下脚步，缓缓升入星空。</p>
+<div class="controls"><button id="play" class="primary" type="button">❚❚ 暂停</button><button id="restart" type="button">↺ 重播</button><button id="slow" type="button">1× 速度</button><button id="full" type="button">⛶ 全屏</button></div>
+<div class="info"><span>年龄时间轴 · 拖动可回看</span><span class="age"><span id="ageText">0.0</span> 岁</span></div>
+<input type="range" id="scrub" min="0" max="82" step="0.1" value="0" aria-label="选择人生年龄">
+<div id="status" role="status">初始化中……</div>
+<div class="legend">视觉规则：同一时刻所有同行者处于同一高度；孩子从家庭中心诞生，随后缓慢向外独立；遇见的人沿柔和曲线飞入；离开时生命线先停止延长，光点随后上升并化作星辰。</div>
+<div class="brand">REN JIAN YI CHENG · MOTION STUDY 03</div>
+</main>
+<script>
+(function(){
+'use strict';
+const cv=document.getElementById('life'),ctx=cv.getContext('2d');
+const el=id=>document.getElementById(id);
+const W=600,H=1067,HEAD=592,PX=21.3,DURATION=63;
+const C={me:'#f0cd87',spouse:'#f1bbd5',child:'#81e5da',mom:'#f59dae',dad:'#90b8ff',gm:'#c5a5ed',gp:'#d0daff',friend:'#8bdfd2',first:'#f4a5c8',class:'#aaa9f6',teacher:'#a4d2a4',colleague:'#e7d3a3'};
+const actors=[
+{id:'gm',name:'外婆',color:C.gm,start:0,end:19.5,star:[125,216],x:()=>144,origin:'family'},
+{id:'mom',name:'母亲',color:C.mom,start:0,end:76,star:[170,165],x:a=>217+7*Math.sin(a*.17+.6),origin:'family'},
+{id:'me',name:'我',color:C.me,start:0,end:83,x:a=>301+4*Math.sin(a*.15),origin:'family'},
+{id:'dad',name:'父亲',color:C.dad,start:0,end:73.5,star:[473,201],x:a=>387+6*Math.sin(a*.13+1),origin:'family'},
+{id:'gp',name:'爷爷',color:C.gp,start:0,end:29,star:[493,126],x:()=>476,origin:'family'},
+{id:'friend',name:'发小',color:C.friend,start:7.5,end:51,star:[103,340],target:190,from:-74,direction:'left'},
+{id:'teacher',name:'恩师',color:C.teacher,start:13.8,end:62,star:[511,313],target:420,from:674,direction:'right'},
+{id:'first',name:'初恋',color:C.first,start:16.1,end:20,star:[151,386],target:250,from:-80,direction:'left'},
+{id:'class',name:'同窗',color:C.class,start:19.7,end:41,star:[526,384],target:418,from:675,direction:'right'},
+{id:'spouse',name:'伴侣',color:C.spouse,start:27.2,end:83,from:-85,target:271,direction:'left',arrival:1.8},
+{id:'colleague',name:'同事',color:C.colleague,start:28.7,end:45.5,star:[508,433],target:455,from:691,direction:'right'},
+{id:'child',name:'孩子',color:C.child,start:32.2,end:83,origin:'birth',x:a=>319+44*(1-Math.exp(-(Math.max(0,a-32.2)/15)))+2*Math.sin(a*.21)}
+];
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const smooth=x=>{x=clamp(x,0,1);return x*x*x*(x*(x*6-15)+10)};
+const mix=(a,b,t)=>a+(b-a)*t;
+const rgba=(hex,a)=>{let s=hex.replace('#','');return `rgba(${parseInt(s.slice(0,2),16)},${parseInt(s.slice(2,4),16)},${parseInt(s.slice(4,6),16)},${a})`};
+const TWO=Math.PI*2;
+let seed=16529; const random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296};
+const stars=Array.from({length:190},()=>({x:random()*W,y:random()*H,alpha:random()*.5+.08,r:.25+random()*.95,phase:random()*6.28}));
+let age=0,playing=true,last=0,speed=1,draws=0;
+function xAt(p,a){
+ if(p.id==='me'||p.id==='mom'||p.id==='dad'||p.id==='gm'||p.id==='gp'||p.id==='child')return p.x(a);
+ let arrive=p.arrival||1.3,progress=smooth((a-p.start)/arrive);
+ let x=mix(p.from,p.target,progress);
+ if(progress>=1)x+=2.1*Math.sin(a*.2+p.start);
+ return x;
+}
+function trace(p,toAge){
+ const from=Math.max(p.start,toAge-(H-HEAD+95)/PX),n=Math.max(1,Math.ceil((toAge-from)/.16));
+ let pts=[];
+ for(let i=0;i<=n;i++){
+  const a=mix(from,toAge,i/n),y=HEAD+(age-a)*PX;
+  let x=xAt(p,a),wavy=(Math.sin(a*1.27+p.start)*.75+Math.sin(a*.38+p.start)*.6)*(1+.05*(toAge-a));
+  pts.push([x+wavy,y,a]);
+ }
+ // Draw old-to-new line in small smooth segments, with a tapered luminous core.
+ for(let layer=0;layer<3;layer++){
+  for(let i=1;i<pts.length;i++){
+   let q=pts[i-1],r=pts[i],fresh=smooth((i/n)),alpha=Math.pow(fresh,1.7);
+   ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(r[0],r[1]);
+   if(layer===0){ctx.strokeStyle=rgba(p.color,.026*alpha);ctx.lineWidth=16*alpha+1.1;}
+   else if(layer===1){ctx.strokeStyle=rgba(p.color,.19*alpha);ctx.lineWidth=5.4*alpha+.5;}
+   else {ctx.strokeStyle=rgba(p.color,.82*alpha);ctx.lineWidth=2.05*alpha+.2;}
+   ctx.lineCap='round';ctx.stroke();
+  }
+ }
+}
+function light(x,y,r,color,a=1){
+ if(x<-20||x>W+20||y< -50||y>H+30)return;
+ const g=ctx.createRadialGradient(x,y,0,x,y,r*6);g.addColorStop(0,rgba(color,.48*a));g.addColorStop(.22,rgba(color,.12*a));g.addColorStop(1,rgba(color,0));ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r*6,0,TWO);ctx.fill();
+ ctx.fillStyle=rgba(color,.95*a);ctx.beginPath();ctx.arc(x,y,r,0,TWO);ctx.fill();
+ ctx.fillStyle=`rgba(255,248,231,${.85*a})`;ctx.beginPath();ctx.arc(x,y,Math.max(1.4,r*.35),0,TWO);ctx.fill();
+}
+function label(t,x,y,color,style='normal'){
+ ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=color;
+ ctx.font=(style==='main'?'bold 26px':'17px')+' "Songti SC","STSong",serif';
+ ctx.shadowColor='#030d16';ctx.shadowBlur=5;ctx.fillText(t,x,y);ctx.restore();
+}
+function backdrop(){
+ const g=ctx.createRadialGradient(313,315,80,300,520,790);g.addColorStop(0,'#11253b');g.addColorStop(.63,'#071322');g.addColorStop(1,'#030711');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ const haze=ctx.createRadialGradient(490,90,8,405,240,450);haze.addColorStop(0,'rgba(51,94,135,.13)');haze.addColorStop(1,'rgba(51,94,135,0)');ctx.fillStyle=haze;ctx.fillRect(0,0,W,H);
+ for(const s of stars){let tw=1+.26*Math.sin(age*.57+s.phase);ctx.fillStyle=`rgba(206,222,245,${s.alpha*tw})`;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,TWO);ctx.fill()}
+ // Title and balanced Chinese graphic system.
+ ctx.textAlign='center';ctx.fillStyle='#cfb48a';ctx.font='16px "Songti SC","STSong",serif';ctx.letterSpacing='3px';ctx.fillText('人 生 如 寄 · 山 水 一 程',316,57);ctx.letterSpacing='0px';
+ ctx.fillStyle='#f2dcc0';ctx.font='34px "Songti SC","STSong",serif';ctx.fillText('人 间 一 程',319,111);
+ ctx.strokeStyle='rgba(221,194,145,.25)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(242,134);ctx.lineTo(396,134);ctx.stroke();
+ ctx.fillStyle='#9aa9c3';ctx.font='13px sans-serif';ctx.textAlign='left';ctx.fillText('年 龄',27,176);
+ // axis ticks move with global time, consistently aligned for everyone.
+ ctx.beginPath();ctx.strokeStyle='rgba(172,192,217,.3)';ctx.lineWidth=1;ctx.moveTo(52,194);ctx.lineTo(52,H-35);ctx.stroke();
+ const lo=Math.max(0,Math.floor((age-25)/5)*5),hi=Math.min(90,Math.ceil((age+22)/5)*5);
+ for(let a=lo;a<=hi;a+=5){let y=HEAD+(age-a)*PX;if(y<199||y>H-35)continue;ctx.strokeStyle='rgba(185,200,218,.42)';ctx.beginPath();ctx.moveTo(47,y);ctx.lineTo(59,y);ctx.stroke();ctx.textAlign='right';ctx.font='14px Georgia,serif';ctx.fillStyle='rgba(195,205,222,.7)';ctx.fillText(String(a),40,y+5)}
+ ctx.save();ctx.strokeStyle='rgba(228,189,120,.38)';ctx.setLineDash([2,8]);ctx.beginPath();ctx.moveTo(58,HEAD);ctx.lineTo(575,HEAD);ctx.stroke();ctx.restore();
+ ctx.textAlign='right';ctx.fillStyle='#ebc88c';ctx.font='bold 18px Georgia,serif';ctx.fillText(age.toFixed(1),47,HEAD-8);
+}
+function rising(p){
+ let dt=age-p.end;
+ // First path stops; subsequent movement is a separate, non-time-aligned departure transition.
+ if(dt<0)return;
+ const departX=xAt(p,p.end),departY=HEAD+dt*PX;
+ if(dt<=0.25){light(departX,departY,4,p.color);return}
+ const f=smooth((dt-.25)/3.7),x=mix(departX,p.star[0],f)+Math.sin(f*Math.PI)*((p.star[0]<departX)?-10:10),y=mix(HEAD+(.25*PX),p.star[1],f);
+ // A very delicate, short-lived upward dust veil, visually detached from the terminated life trail.
+ if(f<1){for(let k=1;k<12;k++){let q=k/12;let dx=mix(departX,x,q);let dy=mix(HEAD,y,q);if(q<f*.6){ctx.fillStyle=rgba(p.color,.095*(1-q));ctx.fillRect(dx,dy,1.1,1.1)}}}
+ light(x,y,4.5+2.3*f,p.color,1);
+ if(f>=.9){ctx.save();ctx.strokeStyle=rgba(p.color,.5*f);ctx.lineWidth=.8;ctx.beginPath();ctx.moveTo(x-12,y);ctx.lineTo(x+12,y);ctx.moveTo(x,y-12);ctx.lineTo(x,y+12);ctx.stroke();ctx.restore();label(p.name,x,y-24,rgba(p.color,.94));}
+}
+function render(){
+ draws++;
+ ctx.clearRect(0,0,W,H);backdrop();
+ // Render departed trails before active trajectories; nobody's trail extends after their departure age.
+ for(const p of actors){
+  if(age<p.start)continue;
+  const until=Math.min(age,p.end);
+  if(until>=p.start+.02)trace(p,until);
+ }
+ for(const p of actors){
+  if(age<p.start)continue;
+  if(age<=p.end){
+   const x=xAt(p,age),aIn=clamp((age-p.start)/.16,.2,1);
+   light(x,HEAD,p.id==='me'?6.5:p.id==='child'?4.6:4.8,p.color,aIn);
+   // Entry names move with their node; existing acquaintances share the same HEAD.
+   const row={gm:0,mom:0,me:0,dad:0,gp:0,friend:2,teacher:2,first:3,class:1,spouse:2,colleague:3,child:1}[p.id]||0;label(p.name,x,HEAD-(p.id==='me'?32:27)-row*31,p.color,p.id==='me'?'main':'normal');
+  }else if(p.star)rising(p);
+ }
+ if(age>78){let p=smooth((age-78)/4);ctx.fillStyle=`rgba(246,218,168,${p})`;ctx.textAlign='center';ctx.font='23px "Songti SC",serif';ctx.fillText('聚散有时 · 情意长明',302,395);}
+}
+function present(){ el('ageText').textContent=age.toFixed(1);el('scrub').value=age.toFixed(1); }
+function toggle(){playing=!playing;el('play').textContent=playing?'❚❚ 暂停':'▶ 播放';el('status').textContent=playing?'动画播放中 · 画布正在实时绘制':'动画已暂停 · 可以拖动年龄轴';last=0;}
+function frame(ms){
+ try{if(playing&&last){age+=Math.min(.09,(ms-last)/1000)*82/DURATION*speed;if(age>=82){age=82;playing=false;el('play').textContent='▶ 播放';el('status').textContent='旅程已结束 · 点击重播'}}last=ms;render();present();requestAnimationFrame(frame)}
+ catch(e){el('status').textContent='绘制错误：'+e.message;console.error(e)}
+}
+try{
+ if(!ctx)throw new Error('浏览器无法创建 Canvas 2D 画布');
+ el('fallback').style.display='none';
+ el('status').textContent='动画播放中 · 实时 Canvas 绘制';
+ el('play').addEventListener('click',()=>{if(age>=82){age=0;playing=true;el('play').textContent='❚❚ 暂停';last=0}else toggle()});
+ el('restart').addEventListener('click',()=>{age=0;playing=true;last=0;el('play').textContent='❚❚ 暂停';el('status').textContent='动画重新开始'});
+ el('slow').addEventListener('click',()=>{speed=speed===1?.5:speed===.5?1.5:1;el('slow').textContent=speed+'× 速度'});
+ el('scrub').addEventListener('input',ev=>{age=Number(ev.target.value);playing=false;last=0;el('play').textContent='▶ 播放';el('status').textContent='已定位至 '+age.toFixed(1)+' 岁 · 点击播放继续';render();present()});
+ el('full').addEventListener('click',async()=>{let node=document.querySelector('.frame');if(document.fullscreenElement){await document.exitFullscreen()}else if(node.requestFullscreen){try{await node.requestFullscreen()}catch(e){el('status').textContent='当前浏览器不支持全屏，可横屏或扩大页面'}}else{el('status').textContent='iPhone Safari 对此类元素全屏有限制，可通过浏览器工具栏隐藏或横屏浏览'}});
+ window.__lifeDebug=()=>({age:Number(age.toFixed(2)),playing,draws,actorHeads:actors.filter(p=>age>=p.start&&age<=p.end).map(p=>[p.name,Math.round(xAt(p,age)),HEAD]),departed:actors.filter(p=>age>p.end).map(p=>p.name)});
+ render();present();requestAnimationFrame(frame);
+}catch(e){el('status').textContent='无法启动动画：'+e.message;console.error(e)}
+})();
+</script>
+</body>
+</html>
