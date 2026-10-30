@@ -40,7 +40,7 @@ const W=440,H=858,Y=534,APY=33.0,END=99,TWO=Math.PI*2;
 const DEPARTURE_LAG=.55,ASCENT_DURATION=5.45,ME_EXIT=84.1,CONSTELLATION_START=90.9,SON_FLIGHT_START=90.0;
 const cv=document.getElementById('scene'),ctx=cv.getContext('2d',{alpha:false});
 const $=id=>document.getElementById(id);
-const cols={me:'#e8c775',mom:'#e88ba7',dad:'#8aafea',gm:'#c1a9da',gp:'#dce5f2',wife:'#e9b5df',son:'#7addd8',friend:'#9dc5c5',school:'#c1b2de',love:'#d9a6ca',high:'#e4e5eb',college:'#e8cc93',coworker:'#e2d89a'};
+const cols={me:'#dec98b',mom:'#d9a6ad',dad:'#a6bed7',gm:'#b7a9c9',gp:'#d1d8e0',wife:'#d8b0c9',son:'#9fcbc5',friend:'#a4c1c5',school:'#b4b5ca',love:'#cca4b5',high:'#c4cad1',college:'#d5c3a4',coworker:'#c8c8ae'};
 const people=[
  {id:'gm',name:'Grandma',c:cols.gm,base:74,start:0,death:25,star:[80,113]},
  {id:'mom',name:'Mom',c:cols.mom,base:132,start:0,death:68,star:[115,235]},
@@ -92,8 +92,8 @@ function active(p,a){return a>=p.start&&a<=lastRealityAge(p)}
 let seed=42;function rnd(){seed=(1664525*seed+1013904223)>>>0;return seed/4294967296}
 const stars=Array.from({length:125},()=>({x:rnd()*W,y:rnd()*H,r:.22+rnd()*.72,o:.06+rnd()*.18,phase:rnd()*7}));
 function sky(t){
- ctx.fillStyle='#030812';ctx.fillRect(0,0,W,H);
- const g=ctx.createRadialGradient(345,185,20,285,310,620);g.addColorStop(0,'#0b1728');g.addColorStop(.49,'#060f1f');g.addColorStop(1,'#020712');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ ctx.fillStyle='#050A15';ctx.fillRect(0,0,W,H);
+ const g=ctx.createRadialGradient(345,185,20,285,310,620);g.addColorStop(0,'#0c1727');g.addColorStop(.49,'#08101e');g.addColorStop(1,'#040916');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
  const n=ctx.createRadialGradient(417,65,20,420,140,268);n.addColorStop(0,'rgba(46,72,111,.13)');n.addColorStop(1,'rgba(18,35,56,0)');ctx.fillStyle=n;ctx.fillRect(0,0,W,H);
  for(let s of stars){ctx.fillStyle=`rgba(214,228,255,${s.o*(.91+.09*Math.sin(t*.8+s.phase))})`;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,TWO);ctx.fill();}
 }
@@ -207,26 +207,26 @@ function drawConstellation(t){
   if(!p0.star||!p1.star)continue;
   const part=clamp(amount*(constellation.length-1)-i,0,1);
   if(part<=0)continue;
-  ctx.strokeStyle=`rgba(193,211,231,${.28*ease(part)})`;
+  ctx.strokeStyle=`rgba(171,185,209,${.22*ease(part)})`;
   ctx.lineWidth=.65;ctx.beginPath();ctx.moveTo(...p0.star);
   ctx.lineTo(lerp(p0.star[0],p1.star[0],part),lerp(p0.star[1],p1.star[1],part));ctx.stroke();
  }
  ctx.restore();
 }
 function endCard(t){
- const alpha=ease((t-93.1)/2.3);if(alpha<=0)return;
+ const alpha=ease((t-95.9)/2.15);if(alpha<=0)return;
  ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
- ctx.fillStyle=`rgba(240,241,244,${.94*alpha})`;
+ ctx.fillStyle=`rgba(235,237,236,${.95*alpha})`;
  if(lang==='zh'){
-   ctx.font='34px "Songti SC","Noto Serif CJK SC",serif';ctx.fillText('人间一程',W/2,582);
-   ctx.font='16px "Songti SC","Noto Serif CJK SC",serif';ctx.fillStyle=`rgba(230,232,240,${.82*alpha})`;
-   ctx.fillText('有人陪你走过一段路。',W/2,622);
-   ctx.fillText('有人化作星辰，照亮后来的人。',W/2,653);
+   ctx.font='32px "Songti SC","Noto Serif CJK SC",serif';ctx.fillText('人间一程',W/2,511);
+   ctx.font='15px "PingFang SC","Microsoft YaHei",sans-serif';ctx.fillStyle=`rgba(200,210,220,${.83*alpha})`;
+   ctx.fillText('有人陪你走过一段路。',W/2,555);
+   ctx.fillText('有人化作星辰，照亮后来的人。',W/2,581);
  }else{
-   ctx.font='35px Georgia,"Times New Roman",serif';ctx.fillText('Life is a journey',W/2,582);
+   ctx.font='33px Georgia,"Times New Roman",serif';ctx.fillText('Life is a journey',W/2,511);
    ctx.font='italic 16px Georgia,serif';ctx.fillStyle=`rgba(230,232,240,${.84*alpha})`;
-   ctx.fillText('Some walk with you for a while.',W/2,623);
-   ctx.fillText('Others stay in your sky forever.',W/2,648);
+   ctx.fillText('Some walk with you for a while.',W/2,555);
+   ctx.fillText('Others stay in your sky forever.',W/2,581);
  }
  ctx.restore();
 }
