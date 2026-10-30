@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#030711">
+<title>Life is a Journey · Motion Study 0.7</title>
+<style>
+:root{color-scheme:dark;--ink:#030711;--soft:#93a3b9;--white:#e3e8f1}
+*{box-sizing:border-box}html,body{padding:0;margin:0;min-height:100%;background:var(--ink);color:var(--white);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif}
+body{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:9px;padding:8px 12px max(16px,env(safe-area-inset-bottom))}
+.screen{position:relative;aspect-ratio:440/858;width:min(96vw,calc((100svh - 170px)*.51282),520px);max-width:100%;overflow:hidden;background:#040b16;flex-shrink:0;touch-action:pan-y}
+canvas{display:block;width:100%;height:100%}
+#fallback{position:absolute;inset:0;display:grid;place-content:center;text-align:center;background:#050a14;color:#e4bfb7;font-size:14px;line-height:1.8;padding:20px}
+.controls{width:min(96vw,520px);display:flex;flex-direction:column;gap:9px;margin-bottom:4px}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:7px}
+button{border:1px solid #2a354a;border-radius:8px;color:#cbd7e9;background:#111a2a;padding:8px 12px;min-height:39px;font-size:13px;cursor:pointer;touch-action:manipulation}
+button:active{background:#223247}button.primary{background:#b9cadf;color:#07101e;border-color:#b9cadf;font-weight:600}
+.time{font-size:14px;font-variant-numeric:tabular-nums;color:#d6b67f;white-space:nowrap;min-width:66px;text-align:right}
+input[type=range]{width:100%;margin:0;accent-color:#b8c8e1;cursor:pointer;touch-action:pan-y;height:18px}
+.helper{display:flex;justify-content:space-between;color:#8190a6;font-size:10px;gap:10px;line-height:1.5}
+.helper span:last-child{text-align:right}.jump{min-height:28px;padding:3px 10px;color:#9eb8d3;font-size:11px;background:#0a1423;border:1px solid #1c2c41}
+@media (max-height:690px){.screen{width:min(86vw,calc((100svh - 143px)*.51282),480px)}body{gap:5px}.controls{gap:5px}button{min-height:34px}}
+@media (min-width:870px){body{padding:14px 20px;gap:12px}.screen{width:min(500px,calc((100svh - 160px)*.51282))}}
+</style>
+</head>
+<body>
+<div class="screen" id="screen">
+ <canvas id="scene" role="img" aria-label="人生旅程动画：人物光点沿共同年龄线同行，朋友从两侧飞入并离开，亲人升入天空化作星星。"></canvas>
+ <div id="fallback">正在准备动画…<small style="font-size:11px;color:#8ca0b6">如持续显示，请使用 Safari / Chrome 打开网页链接。</small></div>
+</div>
+<div class="controls">
+ <div class="toolbar"><button id="play" class="primary" type="button">暂停</button><button id="replay" type="button">↺ 重播</button><button id="rate" type="button">速度 1×</button><button id="full" type="button">全屏</button><span class="time"><b id="age">0.0</b> 岁</span></div>
+ <input id="seek" type="range" min="0" max="99" step="0.05" value="0" aria-label="拖动以选择主人公年龄">
+ <div class="helper"><button id="finale" class="jump" type="button">↳ 直接看结尾</button><button id="lang" class="jump" type="button" aria-label="切换中英文">English</button><span id="hint">飞行基线 ↓120 · 星座位置不变</span></div>
+</div>
+<script>
+(()=>{'use strict';
+const W=440,H=858,Y=534,APY=33.0,END=99,TWO=Math.PI*2;
+const DEPARTURE_LAG=.55,ASCENT_DURATION=5.45,ME_EXIT=84.1,CONSTELLATION_START=90.9,SON_FLIGHT_START=90.0;
+const cv=document.getElementById('scene'),ctx=cv.getContext('2d',{alpha:false});
+const $=id=>document.getElementById(id);
+const cols={me:'#e8c775',mom:'#e88ba7',dad:'#8aafea',gm:'#c1a9da',gp:'#dce5f2',wife:'#e9b5df',son:'#7addd8',friend:'#9dc5c5',school:'#c1b2de',love:'#d9a6ca',high:'#e4e5eb',college:'#e8cc93',coworker:'#e2d89a'};
+const people=[
+ {id:'gm',name:'Grandma',c:cols.gm,base:74,start:0,death:25,star:[80,113]},
+ {id:'mom',name:'Mom',c:cols.mom,base:132,start:0,death:68,star:[115,235]},
+ {id:'me',name:'Me',c:cols.me,base:230,start:0,death:ME_EXIT,star:[221,342]},
+ {id:'dad',name:'Dad',c:cols.dad,base:326,start:0,death:48,star:[326,180]},
+ {id:'gp',name:'Grandpa',c:cols.gp,base:392,start:0,death:21,star:[389,86]},
+ {id:'school',name:'Grade school friend',c:cols.school,start:6.1,side:'left',target:191,enterDuration:2.1,exit:10.2,exitDuration:2.7,exitSide:'right',labelY:-46},
+ {id:'friend',name:'Childhood friend',c:cols.friend,start:11.4,side:'right',target:278,enterDuration:2.8,exit:30.2,exitDuration:2.8,exitSide:'right',labelY:-49},
+ {id:'love',name:'First love',c:cols.love,start:15.1,side:'left',target:188,enterDuration:1.3,exit:19.4,exitDuration:3.0,exitSide:'left',labelY:24},
+ {id:'high',name:'High school friend',c:cols.high,start:15.5,side:'right',target:253,enterDuration:1.8,exit:20.3,exitDuration:2.4,exitSide:'right',labelY:24},
+ {id:'college',name:'College friend',c:cols.college,start:20.4,side:'right',target:190,enterDuration:2.1,exit:25.6,exitDuration:3.3,exitSide:'left',labelY:22},
+ {id:'coworker',name:'Coworker',c:cols.coworker,start:23.8,side:'left',target:163,enterDuration:2.5,exit:26.7,exitDuration:2.2,exitSide:'right',labelY:22},
+ {id:'wife',name:'Wife',c:cols.wife,start:26.4,side:'left',target:187,enterDuration:1.7,death:75,star:[181,287]},
+ {id:'son',name:'Son',c:cols.son,start:34.7,birth:true,death:null,labelY:-49}
+];
+// All names can be switched without changing motion or chronology.
+const namesCN={gm:'外婆',mom:'母亲',me:'我',dad:'父亲',gp:'爷爷',school:'小学同窗',friend:'发小',love:'初恋',high:'高中同窗',college:'大学同窗',coworker:'同事',wife:'伴侣',son:'孩子'};
+let lang='zh';
+const displayName=p=>lang==='zh'?namesCN[p.id]:p.name;
+let age=0,playing=true,last=0,lastFrame=0,speed=1,dragging=false;
+const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v)),ease=t=>{t=clamp(t,0,1);return t*t*t*(t*(t*6-15)+10);};
+const lerp=(a,b,t)=>a+(b-a)*t;
+function hexRgba(hex,a){let v=hex.slice(1);return `rgba(${parseInt(v.slice(0,2),16)},${parseInt(v.slice(2,4),16)},${parseInt(v.slice(4,6),16)},${a})`}
+function vNoise(a,id){let seed=0;for(let i=0;i<id.length;i++)seed+=id.charCodeAt(i)*(i+1);const amp=({me:3.1,mom:9.2,dad:8.2,gm:5.6,gp:5.4,wife:6.8,son:4.6})[id]??6.5;return amp*(.7*Math.sin(.22*a+seed)+.3*Math.sin(.49*a+seed*.37))}
+function xAt(p,a){
+ if(p.birth){
+   // Continuous independence: born near parents and exactly 110 logical units
+   // to the right of Me from Me's age 60 onward (no sudden position jump).
+   const me=people.find(q=>q.id==='me');
+   const parentX=xAt(me,a);
+   const separation=-18+128*ease((a-p.start)/(60-p.start));
+   return parentX+separation;
+ }
+ let x=p.base??p.target;
+ if(p.side){let startX=p.side==='left'?-65:W+65;let t=ease((a-p.start)/(p.enterDuration||2));x=lerp(startX,p.target,t);
+ // The arc bows gently, but endpoints are tangent to vertical companionship.
+ x+=8*Math.sin(Math.PI*clamp((a-p.start)/(p.enterDuration||2),0,1))**2*(p.side==='left'?-1:1);
+ }
+ x+=vNoise(a,p.id)*(p.side?.34*ease((a-p.start-(p.enterDuration||2))/1.1):1);
+ if(Number.isFinite(p.exit)&&a>=p.exit){let t=ease((a-p.exit)/p.exitDuration);let finalX=p.exitSide==='left'?-85:W+85;let startx=Number.isFinite(p.exit)?xAtBeforeExit(p,p.exit):x;x=lerp(startx,finalX,t)+9*Math.sin(Math.PI*clamp((a-p.exit)/p.exitDuration,0,1))**2;}
+ return x;
+}
+function xAtBeforeExit(p,a){ // no recursion; same entrance and companionship rule
+ let x=p.base??p.target;if(p.side){let u=ease((a-p.start)/(p.enterDuration||2));x=lerp(p.side==='left'?-65:W+65,p.target,u)+8*Math.sin(Math.PI*clamp((a-p.start)/(p.enterDuration||2),0,1))**2*(p.side==='left'?-1:1)}
+ x+=vNoise(a,p.id)*(p.side?.34*ease((a-p.start-(p.enterDuration||2))/1.1):1);return x;
+}
+function lastRealityAge(p){return p.death!=null?p.death:p.exit!=null?p.exit+p.exitDuration:END}
+function active(p,a){return a>=p.start&&a<=lastRealityAge(p)}
+let seed=42;function rnd(){seed=(1664525*seed+1013904223)>>>0;return seed/4294967296}
+const stars=Array.from({length:125},()=>({x:rnd()*W,y:rnd()*H,r:.22+rnd()*.72,o:.06+rnd()*.18,phase:rnd()*7}));
+function sky(t){
+ ctx.fillStyle='#030812';ctx.fillRect(0,0,W,H);
+ const g=ctx.createRadialGradient(345,185,20,285,310,620);g.addColorStop(0,'#0b1728');g.addColorStop(.49,'#060f1f');g.addColorStop(1,'#020712');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ const n=ctx.createRadialGradient(417,65,20,420,140,268);n.addColorStop(0,'rgba(46,72,111,.13)');n.addColorStop(1,'rgba(18,35,56,0)');ctx.fillStyle=n;ctx.fillRect(0,0,W,H);
+ for(let s of stars){ctx.fillStyle=`rgba(214,228,255,${s.o*(.91+.09*Math.sin(t*.8+s.phase))})`;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,TWO);ctx.fill();}
+}
+function ticks(t){
+ ctx.save();ctx.globalAlpha=1-ease((t-89.8)/3.8);
+ ctx.lineWidth=.65;ctx.strokeStyle='rgba(175,196,221,.30)';ctx.beginPath();ctx.moveTo(25,0);ctx.lineTo(25,H);ctx.stroke();
+ ctx.textAlign='right';ctx.textBaseline='middle';ctx.font='11px -apple-system,BlinkMacSystemFont,Arial,sans-serif';
+ for(let a=Math.max(0,Math.floor((t-15)/5)*5);a<=Math.min(90,Math.ceil((t+15)/5)*5);a+=5){if(Math.abs(t-a)<.85)continue;let y=Y+(t-a)*APY;if(y<12||y>H-10)continue;ctx.fillStyle='rgba(187,201,219,.56)';ctx.fillText(String(a),15,y);ctx.strokeStyle='rgba(175,196,221,.37)';ctx.beginPath();ctx.moveTo(19,y);ctx.lineTo(27,y);ctx.stroke();}
+ ctx.font='10.5px -apple-system,Arial,sans-serif';ctx.fillStyle='#d4b37a';ctx.fillText(String(Math.floor(t)),15,Y);ctx.fillStyle='#d4b37a';ctx.beginPath();ctx.arc(25,Y,1.5,0,TWO);ctx.fill();ctx.restore();
+}
+function dot(x,y,c,size=2.35,a=1){
+ if(x<-30||x>W+30||y<-35||y>H+30)return;
+ let r=size*5.5,gr=ctx.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,hexRgba(c,.27*a));gr.addColorStop(.22,hexRgba(c,.08*a));gr.addColorStop(1,hexRgba(c,0));ctx.fillStyle=gr;ctx.beginPath();ctx.arc(x,y,r,0,TWO);ctx.fill();
+ ctx.fillStyle=hexRgba(c,.86*a);ctx.beginPath();ctx.arc(x,y,size,0,TWO);ctx.fill();
+ ctx.fillStyle=`rgba(255,255,255,${.76*a})`;ctx.beginPath();ctx.arc(x,y,size*.36,0,TWO);ctx.fill();
+}
+// Son does not get a second trajectory or a new flight effect in the finale.
+// Only his shared visual frame translates upwards; the very same accumulated
+// age-based path, glow and dot continue, without a splice at age 90.
+function sonShift(t){return (373+120)*ease((t-SON_FLIGHT_START)/(END-SON_FLIGHT_START));}
+function trail(p,t){
+ const to=Math.min(t,lastRealityAge(p));const from=Math.max(p.start,to-((H-Y+38)/APY));if(to<=p.start+.005)return;
+ const N=Math.min(230,Math.ceil((to-from)/.082));const stale=(t>to?Math.max(.16,1-(t-to)/11):1)*(p.id==='son'?1:1-ease((t-90.3)/5.3));ctx.lineCap='round';
+ const shift=(p.id==='son'?sonShift(t):0);
+ let arr=[];for(let i=0;i<=N;i++){let a=from+(to-from)*i/N,y=Y+(t-a)*APY-shift;let w=(.47*Math.sin(1.11*a+p.start*.31)+.22*Math.sin(.31*a+p.start))*Math.pow(1-i/N,.7);arr.push([xAt(p,a)+w,y]);}
+ for(let j=1;j<arr.length;j++){
+  let u=j/N,tail=Math.pow(u,1.4);let [x0,y0]=arr[j-1],[x1,y1]=arr[j];
+  if(y0>H+12||y1<0)continue;
+  ctx.strokeStyle=hexRgba(p.c,.075*tail*stale);ctx.lineWidth=4.2*tail+.14;ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+  ctx.strokeStyle=hexRgba(p.c,.66*tail*stale);ctx.lineWidth=.16+1.03*tail;ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+ }
+}
+function textLabel(text,x,y,c,bold=false){
+ ctx.save();ctx.font=(bold?'600 14px ':'13px ')+'-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=hexRgba(c,.91);ctx.shadowColor='#040912';ctx.shadowBlur=4;ctx.fillText(text,x,y);ctx.restore();
+}
+// Death is not a lateral exit: the real trail terminates, the dot floats
+// upwards like a balloon, and only afterwards rests as a permanent star.
+function ascentPosition(p,u){
+ const progress=ease((u-DEPARTURE_LAG)/ASCENT_DURATION);
+ const float=2.1*Math.sin(Math.PI*progress)*Math.sin(u*.88+p.death*.17);
+ return {x:lerp(xAt(p,p.death),p.star[0],progress)+float,
+         y:lerp(Y,p.star[1],progress),progress};
+}
+function memory(p,t){
+ const u=t-p.death;if(u<0)return;
+ const pos=ascentPosition(p,u),s=pos.progress,x=pos.x,y=pos.y;
+ if(u>=DEPARTURE_LAG&&s<1){
+   const old=Math.max(DEPARTURE_LAG,u-1.55);
+   const N=24;
+   ctx.save();ctx.lineCap='round';
+   for(let i=1;i<=N;i++){
+     const u0=lerp(old,u,(i-1)/N),u1=lerp(old,u,i/N);
+     const a=ascentPosition(p,u0),b=ascentPosition(p,u1);
+     ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+     ctx.lineWidth=.55+.23*i/N;ctx.strokeStyle=hexRgba(p.c,.11+.16*i/N);ctx.stroke();
+   }
+   ctx.restore();
+ }
+ if(s>=1){
+   const flare=.84+.08*Math.sin(t*.49+p.death);
+   ctx.strokeStyle=hexRgba(p.c,.24*flare);ctx.lineWidth=.62;ctx.beginPath();
+   ctx.moveTo(x-5.5,y);ctx.lineTo(x+5.5,y);ctx.moveTo(x,y-5.5);ctx.lineTo(x,y+5.5);ctx.stroke();
+   dot(x,y,p.c,2.15,flare);
+ }else dot(x,y,p.c,2.18,1);
+ textLabel(displayName(p),x,y-21,p.c);
+}
+function companions(t){
+ const now=[];
+ for(let p of people){if(t<p.start)continue;trail(p,t);if(p.death!=null && t>=p.death)continue;if(active(p,t)){let x=xAt(p,t);if(x>-28&&x<W+28)now.push({p,x,y:p.id==='son'?Y-sonShift(t):Y});}}
+ // Text collision avoidance only within the same current-age line. Names keep a restrained size.
+ const sorted=now.slice().sort((a,b)=>a.x-b.x);
+ const positions=new Map();
+ for(let n of sorted){let p=n.p,y=p.labelY??-22;if(p.id==='son')y=-49;
+  if(p.id==='wife')y=-23;if(p.id==='me')y=-23;
+  for(let m of sorted){if(m===n)break;let py=positions.get(m.p.id);if(py!=null&&Math.abs(n.x-m.x)<Math.min(86,(displayName(n.p).length+displayName(m.p).length)*(lang==='zh'?6.6:3.15)+12)&&Math.abs(y-py)<15){y=(py<-30)?-22:-49;}}
+  positions.set(p.id,y);
+ }
+ for(let n of now){
+  let p=n.p, born=1, size=p.id==='me'?2.6:2.25;
+  if(p.birth){
+    const elapsed=t-p.start;
+    // Original reference: one restrained, slow brightness bloom. No rings,
+    // flashes across the screen, extra particles or separate trajectory.
+    born=ease(elapsed/.48);
+    const glow=Math.sin(Math.PI*clamp(elapsed/1.45,0,1));
+    const intensity=glow*glow;
+    size+=.48*intensity;
+    if(intensity>0){
+      let h=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,20);
+      h.addColorStop(0,hexRgba(p.c,.11*intensity));
+      h.addColorStop(.35,hexRgba(p.c,.048*intensity));
+      h.addColorStop(1,hexRgba(p.c,0));
+      ctx.fillStyle=h;ctx.beginPath();ctx.arc(n.x,n.y,20,0,TWO);ctx.fill();
+    }
+  }
+  dot(n.x,n.y,p.c,size,born);
+  if(born>.08)textLabel(displayName(p),n.x,n.y+positions.get(p.id),p.c,p.id==='me');
+ }
+ for(let p of people){if(p.death!=null && t>=p.death)memory(p,t);}
+}
+// Six departed loved ones form a constellation. The lines are not part of
+// their living tails; they only appear once Me has become a star.
+const constellation=['gm','gp','dad','me','wife','mom','gm'];
+function constellationProgress(t){return ease((t-CONSTELLATION_START)/5.25)}
+function drawConstellation(t){
+ const amount=constellationProgress(t);
+ if(amount<=0)return;
+ ctx.save();ctx.lineCap='round';
+ for(let i=0;i<constellation.length-1;i++){
+  const p0=people.find(p=>p.id===constellation[i]),p1=people.find(p=>p.id===constellation[i+1]);
+  if(!p0.star||!p1.star)continue;
+  const part=clamp(amount*(constellation.length-1)-i,0,1);
+  if(part<=0)continue;
+  ctx.strokeStyle=`rgba(193,211,231,${.28*ease(part)})`;
+  ctx.lineWidth=.65;ctx.beginPath();ctx.moveTo(...p0.star);
+  ctx.lineTo(lerp(p0.star[0],p1.star[0],part),lerp(p0.star[1],p1.star[1],part));ctx.stroke();
+ }
+ ctx.restore();
+}
+function endCard(t){
+ const alpha=ease((t-93.1)/2.3);if(alpha<=0)return;
+ ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
+ ctx.fillStyle=`rgba(240,241,244,${.94*alpha})`;
+ if(lang==='zh'){
+   ctx.font='34px "Songti SC","Noto Serif CJK SC",serif';ctx.fillText('人间一程',W/2,582);
+   ctx.font='16px "Songti SC","Noto Serif CJK SC",serif';ctx.fillStyle=`rgba(230,232,240,${.82*alpha})`;
+   ctx.fillText('有人陪你走过一段路。',W/2,622);
+   ctx.fillText('有人化作星辰，照亮后来的人。',W/2,653);
+ }else{
+   ctx.font='35px Georgia,"Times New Roman",serif';ctx.fillText('Life is a journey',W/2,582);
+   ctx.font='italic 16px Georgia,serif';ctx.fillStyle=`rgba(230,232,240,${.84*alpha})`;
+   ctx.fillText('Some walk with you for a while.',W/2,623);
+   ctx.fillText('Others stay in your sky forever.',W/2,648);
+ }
+ ctx.restore();
+}
+function render(t){sky(t);ticks(t);drawConstellation(t);companions(t);endCard(t);$('age').textContent=t.toFixed(1);$('seek').value=t;}
+function sync(){ $('play').textContent=playing?'暂停':'播放';}
+function loop(ms){if(!last)last=ms;let dt=Math.min((ms-last)/1000,.085);last=ms;
+ if(playing && !dragging){age=Math.min(END,age+dt*1.05*speed);if(age===END)playing=false;}
+ // cap render work at 32fps on devices while preserving smooth time math
+ if(ms-lastFrame>30 || dragging){render(age);lastFrame=ms;}
+ sync();requestAnimationFrame(loop);
+}
+$('play').addEventListener('click',()=>{playing=!playing;last=0;if(playing && age>=END)age=0;render(age);sync()});
+$('replay').addEventListener('click',()=>{age=0;playing=true;last=0;render(age);sync()});
+$('finale').addEventListener('click',()=>{age=83.3;playing=true;last=0;render(age);sync()});
+$('lang').addEventListener('click',()=>{lang=lang==='zh'?'en':'zh';$('lang').textContent=lang==='zh'?'English':'中文';render(age);});
+$('rate').addEventListener('click',()=>{speed=speed===1?1.5:speed===1.5?2:.75===speed?1:.75;$('rate').textContent='速度 '+speed+'×'});
+$('seek').addEventListener('input',ev=>{age=clamp(Number(ev.target.value),0,END);playing=false;render(age);sync()});
+$('seek').addEventListener('pointerdown',()=>{dragging=true});$('seek').addEventListener('pointerup',()=>{dragging=false});
+$('full').addEventListener('click',async()=>{try{if(!document.fullscreenElement){await $('screen').requestFullscreen();}else await document.exitFullscreen();}catch(e){$('full').textContent='浏览器不支持全屏';}});
+window.addEventListener('keydown',e=>{if(e.code==='Space'&&e.target.tagName!=='BUTTON'){e.preventDefault();playing=!playing;sync()}if(e.code==='ArrowRight'){age=clamp(age+1,0,END);playing=false;render(age)}if(e.code==='ArrowLeft'){age=clamp(age-1,0,END);playing=false;render(age)}});
+cv.width=W*2;cv.height=H*2;ctx.setTransform(2,0,0,2,0,0);
+$('fallback').hidden=true;$('fallback').style.display='none';render(0);requestAnimationFrame(loop);window.__motionStudy={renderAt:a=>{age=clamp(a,0,END);playing=false;render(age)},getAge:()=>age,getState:()=>({age,playing,speed}),getPosition:(id,a)=>{const p=people.find(q=>q.id===id);return p&&active(p,a)&&a<(p.death??Infinity)?{x:xAt(p,a),y:p.id==='son'?Y-sonShift(a):Y}:null},getPhase:(id,a)=>{const p=people.find(q=>q.id===id);if(!p||a<p.start)return 'NOT_ARRIVED';if(p.death!=null&&a>=p.death)return a<p.death+DEPARTURE_LAG+ASCENT_DURATION?'ASCENDING':'STAR';if(p.exit!=null&&a>=p.exit)return a<=p.exit+p.exitDuration?'DRIFTING_OUT':'GONE';if(p.side&&a<p.start+p.enterDuration)return 'ENTERING';return 'COMPANION'},getMemory:(id,a)=>{const p=people.find(q=>q.id===id);return p&&p.death!=null&&a>=p.death?ascentPosition(p,a-p.death):null},getConstellationProgress:constellationProgress,getBirthGlow:a=>{let v=Math.sin(Math.PI*clamp((a-34.7)/1.45,0,1));return v*v},setLanguage:v=>{lang=v==='en'?'en':'zh';$('lang').textContent=lang==='zh'?'English':'中文';render(age)},getLanguage:()=>lang,getSonPosition:a=>{const p=people.find(q=>q.id==='son');return {x:xAt(p,a),y:Y-sonShift(a)}},people};
+})();
+</script>
+</body>
+</html>
